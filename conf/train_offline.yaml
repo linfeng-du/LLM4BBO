@@ -1,0 +1,22 @@
+defaults:
+  - _self_
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: disabled
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: false
+
+dataset:
+  task_name: TFBind8-Exact-v0
+  train_size: null
+  val_size: 0.2
+  response_ratio: 0.2
+  num_references: 10
+  num_permutations: 2
+  seed: 42
+
+model: microsoft/Phi-4-mini-instruct

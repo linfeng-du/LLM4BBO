@@ -25,6 +25,11 @@ def build_offline_dataset(
         test_size=val_size, train_size=train_size, random_state=seed
     )
 
+    # Min-max normalize target values
+    y_train_min, y_train_max = (y_train.min(), y_train.max())
+    y_train = (y_train - y_train_min) / (y_train_max - y_train_min)
+    y_val = (y_val - y_train_min) / (y_train_max - y_train_min)
+
     rng = np.random.default_rng(seed)
 
     train_dataset = _build_offline_dataset_split(
@@ -36,17 +41,11 @@ def build_offline_dataset(
         response_ratio, num_references, num_permutations=1, rng=rng
     )
 
-    # Min–max normalize rewards, then divide by standard deviation of normalized rewards
-    train_rewards = np.array(train_dataset['reward'])
-    reward_min, reward_max = (train_rewards.min(), train_rewards.max())
-    assert reward_min != reward_max, 'All rewards are the same'
+    # Divide by standard deviation of train rewards
+    reward_std = np.array(train_dataset['reward']).std()
 
-    train_rewards = (train_rewards - reward_min) / (reward_max - reward_min)
-    reward_std = train_rewards.std()
-
-    def normalize_reward(example):
-        reward = (example['reward'] - reward_min) / (reward_max - reward_min) / reward_std
-        return {'reward': reward}
+    def normalize_reward(example: dict[str, str | float]) -> dict[str, float]:
+        return {'reward': example['reward'] / reward_std}
 
     train_dataset = train_dataset.map(normalize_reward)
     val_dataset = val_dataset.map(normalize_reward)

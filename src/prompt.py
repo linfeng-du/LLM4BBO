@@ -56,7 +56,7 @@ def create_parse_fn(task_name: str) -> Callable[[list[str]], np.ndarray]:
 # TFBind8-Exact-v0 and TFBind10-Exact-v0
 TFBIND_USER_PROMPT_PREFIX = (
     "You are provided with an offline dataset "
-    "consisting of DNA sequences with measured binding affinities:"
+    "consisting of DNA sequences and their binding affinities:"
 )
 TFBIND_USER_PROMPT_SUFFIX = (
     "Design a new DNA sequence with improved binding affinity "
@@ -135,7 +135,7 @@ ANTMORPHOLOGY_USER_PROMPT_PREFIX = (
     "the center and range of each of the hip, thigh, and ankle joints, "
     "and the sizes of the hip, thigh, and ankle joints. "
     "You are provided with an offline dataset "
-    "consisting of robot morphologies with measured performance scores:"
+    "consisting of robot morphologies and their performance scores:"
 )
 
 DKITTYMORPHOLOGY_SYSTEM_PROMPT = (
@@ -157,7 +157,7 @@ DKITTYMORPHOLOGY_USER_PROMPT_PREFIX = (
     "the sizes of the hip and knee joints, "
     "and the center, range, and size of the foot joint. "
     "You are provided with an offline dataset "
-    "consisting of robot morphologies with measured performance scores:"
+    "consisting of robot morphologies and their performance scores:"
 )
 
 MORPHOLOGY_USER_PROMPT_SUFFIX = (

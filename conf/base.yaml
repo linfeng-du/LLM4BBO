@@ -1,0 +1,22 @@
+defaults:
+  - llm: qwen3-4b-instruct
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${run_name}
+
+run_name: "${hydra:runtime.choices.llm}/\
+  ${task_name}/d${dataset_size}_s${num_shots}"
+
+task_name: ???
+dataset_size: 500
+num_shots: 10
+
+# offline RL
+num_candidates: 20
+num_permutations: 2
+
+# test
+num_trials: 8
+num_designs: 128

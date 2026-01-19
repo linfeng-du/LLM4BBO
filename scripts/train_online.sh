@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sbatch_time='6:00:00'
+sbatch_time='12:00:00'
 task_names="TFBind8-Exact-v0,TFBind10-Exact-v0,\
 AntMorphology-Exact-v0,DKittyMorphology-Exact-v0"
 dataset_sizes='900,700,500,300'

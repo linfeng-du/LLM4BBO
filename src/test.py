@@ -45,39 +45,45 @@ def test(pipe: TextGenerationPipeline, cfg: DictConfig) -> None:
     best_conversations = []
 
     # Run 8 trials, each generating 128 designs
-    for seed in range(cfg.num_trials):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
+    with tqdm(
+        total=cfg.num_trials * cfg.num_designs, desc="Generating designs"
+    ) as pbar:
+        for seed in range(cfg.num_trials):
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
 
-        indices = np.random.choice(len(x), size=cfg.num_designs, replace=False)
-        x_references, y_references = x[indices], y[indices]
-        prompt = prompt_fn(x_references, y_references)
+            indices = np.random.choice(
+                len(x), size=cfg.num_designs, replace=False
+            )
+            x_references, y_references = x[indices], y[indices]
+            prompt = prompt_fn(x_references, y_references)
 
-        completions = []
-        x_designs = []
+            completions = []
+            x_designs = []
 
-        for _ in tqdm(range(cfg.num_designs), desc="Generating designs"):
-            outputs = pipe(prompt, return_full_text=False)
-            completion = outputs[0]["generated_text"]
-            x_design = parse_fn([completion])
+            for _ in range(cfg.num_designs):
+                outputs = pipe(prompt, return_full_text=False)
+                completion = outputs[0]["generated_text"]
+                x_design = parse_fn([completion])
 
-            completions.append(completion)
-            x_designs.append(x_design)
+                completions.append(completion)
+                x_designs.append(x_design)
+                pbar.update()
 
-        x_design = np.vstack(x_designs)
-        y_design = task.predict(x_design)
+            x_design = np.vstack(x_designs)
+            y_design = task.predict(x_design)
 
-        y_design_max = (y_design.max() - y_min) / (y_max - y_min)
-        y_design_median = (np.median(y_design) - y_min) / (y_max - y_min)
-        best_conversation = prompt + [{
-            "role": "assistant", "content": completions[y_design.argmax()]
-        }]
+            y_design_max = (y_design.max() - y_min) / (y_max - y_min)
+            y_design_median = (np.median(y_design) - y_min) / (y_max - y_min)
+            best_conversation = prompt + [{
+                "role": "assistant", "content": completions[y_design.argmax()]
+            }]
 
-        y_design_maxs.append(y_design_max)
-        y_design_medians.append(y_design_median)
-        best_conversations.append(best_conversation)
+            y_design_maxs.append(y_design_max)
+            y_design_medians.append(y_design_median)
+            best_conversations.append(best_conversation)
 
     results = {
         "max_mean": np.mean(y_design_maxs).item(),

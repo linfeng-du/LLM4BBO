@@ -58,22 +58,13 @@ def test(pipe: TextGenerationPipeline, cfg: DictConfig) -> None:
         completions = []
         x_designs = []
 
-        batch_size = 4
-        assert cfg.num_designs % batch_size == 0
+        for _ in tqdm(range(cfg.num_designs), desc="Generating designs"):
+            outputs = pipe(prompt, return_full_text=False)
+            completion = outputs[0]["generated_text"]
+            x_design = parse_fn([completion])
 
-        with tqdm(total=cfg.num_designs, desc="Generating designs") as pbar:
-            for _ in range(cfg.num_designs // batch_size):
-                outputs = pipe(
-                    prompt,
-                    return_full_text=False,
-                    num_return_sequences=batch_size
-                )
-                batch_completions = [o["generated_text"] for o in outputs]
-                batch_x_design = parse_fn(batch_completions)
-
-                completions.extend(batch_completions)
-                x_designs.append(batch_x_design)
-                pbar.update(n=batch_size)
+            completions.append(completion)
+            x_designs.append(x_design)
 
         x_design = np.vstack(x_designs)
         y_design = task.predict(x_design)

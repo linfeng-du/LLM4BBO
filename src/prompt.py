@@ -167,7 +167,7 @@ MORPHOLOGY_USER_PROMPT_SUFFIX = (
 
 
 def _morphology_design_stringify_fn(x: np.ndarray) -> str:
-    return f"<answer>{[f'{param:.2f}' for param in x]}</answer>"
+    return f"<answer>{[f'{param:.3f}' for param in x]}</answer>"
 
 
 def _morphology_reference_stringify_fn(x: np.ndarray, y: np.ndarray) -> str:

@@ -21,9 +21,9 @@ while true; do
   esac
 done
 
-IFS=',' read -r -a task_names <<< "${task_names}"
-IFS=',' read -r -a dataset_sizes <<< "${dataset_sizes}"
-IFS=',' read -r -a llms <<< "${llms}"
+IFS=',' read -ra task_names <<< "${task_names}"
+IFS=',' read -ra dataset_sizes <<< "${dataset_sizes}"
+IFS=',' read -ra llms <<< "${llms}"
 
 for llm in "${llms[@]}"; do
   for task_name in "${task_names[@]}"; do

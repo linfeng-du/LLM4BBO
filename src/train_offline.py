@@ -42,7 +42,7 @@ def train_offline(cfg: DictConfig):
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
         processing_class=tokenizer,
-        peft_config=LoraConfig(**OmegaConf.to_container(cfg.lora_config))
+        peft_config=LoraConfig(**OmegaConf.to_container(cfg.llm.lora_config))
     )
     trainer.train()
 

@@ -28,7 +28,7 @@ Add the following line to `~/.bashrc`:
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/.mujoco/mujoco200/bin"
 ```
 
-Install `design-bench`, `tf-keras`, and `morphing-agents`
+Install `design-bench` and `morphing-agents`.
 
 ```bash
 pip install design-bench==2.0.20

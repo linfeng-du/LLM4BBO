@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 stage: base
-run_name: ${stage_to_run_name.${stage}}/test_${stringify:${test}}
+run_name: ${stage_to_run_name.${stage}}/${stringify:${test}}
 model: ${stage_to_model.${stage}}
 
 test:

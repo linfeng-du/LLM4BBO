@@ -1,0 +1,25 @@
+defaults:
+  - base
+  - _self_
+
+run_name: ${stage_to_run_name.sft}
+
+build_dataset:
+  response_ratio: ${sft.response_ratio}
+  num_candidates: ${sft.num_candidates}
+  num_shots: ${sft.num_shots}
+  num_permutations: ${sft.num_permutations}
+
+training_arguments:
+  # TrainingArguments
+  per_device_train_batch_size: 2
+  num_train_epochs: 10
+  # https://arxiv.org/pdf/2510.13786
+  learning_rate: 3e-5
+  lr_scheduler_type: constant
+  gradient_accumulation_steps: 4
+  per_device_eval_batch_size: 2
+  # SFTConfig
+  model_init_kwargs:
+    dtype: bfloat16
+  max_length: null

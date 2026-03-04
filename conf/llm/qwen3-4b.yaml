@@ -1,0 +1,9 @@
+model: Qwen/Qwen3-4B
+eoth_token: </think>
+
+# https://huggingface.co/Qwen/Qwen3-4B#best-practices
+generation_kwargs:
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0

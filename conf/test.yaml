@@ -1,0 +1,13 @@
+defaults:
+  - base
+  - _self_
+
+stage: base
+run_name: ${stage_to_run_name.${stage}}/test_${stringify:${test}}
+model: ${stage_to_model.${stage}}
+
+test:
+  thinking_budget: 12288
+  num_trials: 8
+  num_proposals: 128
+  num_shots: 10

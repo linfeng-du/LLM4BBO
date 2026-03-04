@@ -1,1 +1,1 @@
-hf download Qwen/Qwen3-4B-Instruct-2507
+hf download Qwen/Qwen3-4B

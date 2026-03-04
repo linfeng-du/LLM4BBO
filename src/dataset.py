@@ -1,19 +1,18 @@
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from tqdm import tqdm
 
+import patches, design_bench
+from datasets import Dataset, DatasetDict
+from design_bench.task import Task
+
 import numpy as np
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-
-from datasets import Dataset, DatasetDict
-
-import patches
-import design_bench
-from design_bench.task import Task
 
 from prompt import create_prompt_fn
 
@@ -21,171 +20,206 @@ from prompt import create_prompt_fn
 logger = logging.getLogger(__name__)
 
 
-def load_evenly_spaced_examples(
+def sample_evenly_spaced_subset(
     task_name: str,
-    dataset_size: int
-) -> tuple[Task, np.ndarray, np.ndarray]:
-    task = design_bench.make(task_name)
+    subset_size: int
+) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
+    task, x, y, oracle_scaler = _load_relabeled_dataset(task_name)
 
-    x = task.x
-    y = _load_relabeled_y(task_name, task)
-
-    sorted_indices = y.squeeze(axis=-1).argsort()
-    spaced_indices = (
-        np.linspace(0, len(sorted_indices) - 1, num=dataset_size)
+    sorted_index = y.squeeze(axis=-1).argsort()
+    spaced_index = (
+        np.linspace(0, len(sorted_index) - 1, num=subset_size)
         .round().astype(int)
     )
+    index = sorted_index[spaced_index]
 
-    indices = sorted_indices[spaced_indices]
-    return task, x[indices], y[indices]
-
-
-def _load_relabeled_y(task_name: str, task: Task) -> np.ndarray:
-    relabeled_y_file = Path("data") / f"{task_name}_relabeled_y.npy"
-
-    if not relabeled_y_file.exists():
-        logger.info(f"Relabeling {task_name}...")
-        y_relabeled = task.predict(task.x)
-        np.save(relabeled_y_file, y_relabeled)
-
-    return np.load(relabeled_y_file)
+    return task, x[index], y[index], oracle_scaler
 
 
-def build_rl_dataset(
+def _load_relabeled_dataset(
+    task_name: str
+) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
+    relabeled_dir = Path("data") / "relabeled_datasets"
+    task = design_bench.make(task_name)
+
+    # Used to normalize oracle predictions
+    oracle_scaler = MinMaxScaler()
+
+    if task_name == "TFBind10-Exact-v0":
+        x = np.load(relabeled_dir / "tf10_x_correct.npy")
+        y = np.load(relabeled_dir / "tf10_y_correct.npy")
+        oracle_scaler.fit(y)
+
+        # Keep the half of examples with the smallest y
+        half_size = len(y) // 2
+        index = y.squeeze(axis=-1).argpartition(half_size)[:half_size]
+        x, y = x[index], y[index]
+
+        # Patch `task.predict` to use relabeled y
+        text = (relabeled_dir / "parsed_tf10.txt").read_text()
+        table = {
+            k: float(v)
+            for line in text.splitlines()
+            for k, v in [line.split()]
+        }
+
+        def tfbind10_predict(x: np.ndarray) -> np.ndarray:
+            x_char = np.array(['A', 'C', 'G', 'T'])[x]
+            return np.array([[table["".join(x)]] for x in x_char])
+
+        task.predict = tfbind10_predict
+
+    else:
+        x = task.x
+        y = np.load(relabeled_dir / f"{task_name}_relabeled_y.npy")
+
+        # Create a temporary task object to avoid mutating `task`
+        tmp_task = design_bench.make(task_name)
+        tmp_task.dataset.subsample()
+        oracle_scaler.fit(tmp_task.dataset.y)
+
+    return task, x, y, oracle_scaler
+
+
+def build_dataset(
     task_name: str,
-    dataset_size: int,
-    val_size: int,
-    random_state: int,
-    mode: str,
-    **kwargs: dict[str, Any]
+    subset_size: int,
+    stage: str,
+    val_size: int | float,
+    seed: int,
+    scale_reward: bool | None = None,
+    **kwargs: Any
 ) -> DatasetDict:
-    task, x, y = load_evenly_spaced_examples(task_name, dataset_size)
+    task, x, y, _ = sample_evenly_spaced_subset(task_name, subset_size)
 
-    # Min-max normalize `y` to ensure consistent reward scale across tasks
-    scaler = MinMaxScaler()
-    y_norm = scaler.fit_transform(y)
-
-    x_train, x_val, y_train, y_val, y_norm_train, y_norm_val = (
-        train_test_split(
-            x, y, y_norm, test_size=val_size, random_state=random_state
-        )
+    x_train, x_val, y_train, y_val = train_test_split(
+        x, y, test_size=val_size, random_state=seed
     )
 
-    rng = np.random.default_rng(random_state)
+    # Min-max normalize y to ensure a consistent reward scale across tasks
+    scaler = MinMaxScaler()
+    y_train_norm = scaler.fit_transform(y_train)
+    y_val_norm = scaler.transform(y_val)
 
-    if mode == "offline":
-        train_dataset = _build_offline_rl_dataset(
-            task_name, task, x_train, y_train, y_norm_train, rng, **kwargs
-        )
-        val_dataset = _build_offline_rl_dataset(
-            task_name, task, x_val, y_val, y_norm_val, rng, **kwargs
-        )
+    rng = np.random.default_rng(seed)
 
-        # Normalize rewards by global standard deviation
-        r_train_std = np.std(train_dataset["reward"])
-        train_dataset = train_dataset.map(
-            lambda example: {"reward": example["reward"] / r_train_std}
+    if stage in {"sft", "offline_rl"}:
+        train_dataset = _build_offline_dataset(
+            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
         )
-        val_dataset = val_dataset.map(
-            lambda example: {"reward": example["reward"] / r_train_std}
+        val_dataset = _build_offline_dataset(
+            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
         )
 
-    elif mode == "online":
+        if stage == "offline_rl":
+            assert scale_reward is not None
+
+            if scale_reward:
+                # Scale rewards by inverse of the global std
+                r_train_std = np.std(train_dataset["reward"]).item()
+                assert r_train_std > 0
+
+                def scale_fn(example: Mapping[str, Any]) -> dict[str, float]:
+                    return {"reward": example["reward"] / r_train_std}
+
+                train_dataset = train_dataset.map(scale_fn)
+                val_dataset = val_dataset.map(scale_fn)
+        else:
+            train_dataset = train_dataset.remove_columns("reward")
+            val_dataset = val_dataset.remove_columns("reward")
+
+    elif stage == "online_rl":
         train_dataset = _build_online_rl_dataset(
-            task_name, x_train, y_train, rng, **kwargs
+            task_name, x_train, y_train, rng=rng, **kwargs
         )
         val_dataset = _build_online_rl_dataset(
-            task_name, x_val, y_val, rng, **kwargs
+            task_name, x_val, y_val, rng=rng, **kwargs
         )
 
     else:
-        raise ValueError(f"Invalid mode: {mode}")
+        raise ValueError(f"Invalid stage: {stage}")
 
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
-def _build_offline_rl_dataset(
+def _build_offline_dataset(
     task_name: str,
     task: Task,
     x: np.ndarray,
     y: np.ndarray,
     y_norm: np.ndarray,
-    rng: np.random.Generator,
-    response_fraction: float,
+    response_ratio: float,
     num_candidates: int,
     num_shots: int,
-    num_permutations: int
+    num_permutations: int,
+    rng: np.random.Generator
 ) -> Dataset:
-    indices = rng.permutation(len(x))
-    x, y, y_norm = x[indices], y[indices], y_norm[indices]
-
     # Partition the dataset into disjoint response and prompt subsets
-    response_size = int(len(x) * response_fraction)
-    assert len(x) - response_size >= num_candidates
+    index = rng.permutation(len(x))
+    x, y, y_norm = x[index], y[index], y_norm[index]
+    response_size = int(len(x) * response_ratio)
 
-    x_responses, y_norm_responses = x[:response_size], y_norm[:response_size]
+    x_response, y_norm_response = x[:response_size], y_norm[:response_size]
     x_prompt, y_prompt, y_norm_prompt = (
         x[response_size:], y[response_size:], y_norm[response_size:]
     )
 
     if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
-        similarity_matrix = rbf_kernel(
-            task.to_logits(x_responses).reshape(len(x_responses), -1),
+        similarity = rbf_kernel(
+            task.to_logits(x_response).reshape(len(x_response), -1),
             task.to_logits(x_prompt).reshape(len(x_prompt), -1)
         )
-
     elif task_name in {"AntMorphology-Exact-v0", "DKittyMorphology-Exact-v0"}:
-        similarity_matrix = rbf_kernel(
-            x_responses.reshape(len(x_responses), -1),
-            x_prompt.reshape(len(x_prompt), -1)
-        )
-
+        similarity = rbf_kernel(x_response, x_prompt)
     else:
         raise ValueError(f"Invalid task: {task_name}")
 
     prompt_fn = create_prompt_fn(task_name)
-    examples = []
 
-    for x_response, y_norm_response, similarities in tqdm(
-        zip(x_responses, y_norm_responses, similarity_matrix, strict=True),
+    examples = []
+    positive_rewards = []
+
+    for x_resp, y_norm_resp, sim in tqdm(
+        zip(x_response, y_norm_response, similarity, strict=True),
         desc=f"Building offline RL dataset for {task_name}",
-        total=len(x_responses)
+        total=len(x_response)
     ):
         # Retrieve candidates with the highest kernel-based similarity
-        indices = similarities.argpartition(-num_candidates)[-num_candidates:]
-        x_candidates, y_candidates, y_norm_candidates = (
-            x_prompt[indices], y_prompt[indices], y_norm_prompt[indices]
+        index = sim.argpartition(-num_candidates)[-num_candidates:]
+        x_cand, y_cand, y_norm_cand = (
+            x_prompt[index], y_prompt[index], y_norm_prompt[index]
         )
 
-        worse_indices = np.where(y_norm_response > y_norm_candidates)[0]
+        worse_index = np.where(y_norm_resp > y_norm_cand)[0]
 
-        if len(worse_indices) >= num_shots:
-            # Sample only from candidates that are worse than the response
-            indices = rng.choice(worse_indices, size=num_shots, replace=False)
+        if len(worse_index) >= num_shots:
+            # Positive reward: sample from candidates worse than the response
+            index = rng.choice(worse_index, size=num_shots, replace=False)
         else:
-            indices = rng.permutation(num_candidates)[:num_shots]
+            # Negative reward: sample from all candidates
+            index = rng.permutation(num_candidates)[:num_shots]
 
-        x_references, y_references, y_norm_references = (
-            x_candidates[indices],
-            y_candidates[indices],
-            y_norm_candidates[indices]
+        x_ref, y_ref, y_norm_ref = (
+            x_cand[index], y_cand[index], y_norm_cand[index]
         )
 
-        # Compute reward as improvement from the references to the response
-        reward = (y_norm_response - y_norm_references.max()).item()
+        reward = (y_norm_resp - y_norm_ref.max()).item()
 
         # Include different permutations of the references
         for _ in range(num_permutations):
-            indices = rng.permutation(len(x_references))
-            prompt, completion = prompt_fn(
-                x_references[indices],
-                y_references[indices],
-                x_response=x_response
+            index = rng.permutation(len(x_ref))
+            prompt, completion = prompt_fn(x_ref[index], y_ref[index], x_resp)
+            examples.append(
+                {
+                    "prompt": prompt,
+                    "completion": completion,
+                    "chat_template_kwargs": {"enable_thinking": False},
+                    "reward": reward
+                }
             )
-            examples.append({
-                "prompt": prompt, "completion": completion, "reward": reward
-            })
+            positive_rewards.append(reward > 0)
 
+    logger.info(f"Positive reward ratio: {np.mean(positive_rewards)}")
     return Dataset.from_list(examples)
 
 
@@ -193,22 +227,23 @@ def _build_online_rl_dataset(
     task_name: str,
     x: np.ndarray,
     y: np.ndarray,
-    rng: np.random.Generator,
-    online_dataset_size: int,
-    num_shots: int
+    dataset_size: int,
+    num_shots: int,
+    rng: np.random.Generator
 ) -> Dataset:
     prompt_fn = create_prompt_fn(task_name)
     examples = []
 
     for _ in tqdm(
-        range(online_dataset_size),
-        desc=f"Building online RL dataset for {task_name}"
+        range(dataset_size), desc=f"Building online RL dataset for {task_name}"
     ):
-        indices = rng.choice(len(x), size=num_shots, replace=False)
-        x_references, y_references = x[indices], y[indices]
-        examples.append({
-            "prompt": prompt_fn(x_references, y_references),
-            "best_reference_score": y_references.max().item()
-        })
+        index = rng.choice(len(x), size=num_shots, replace=False)
+        x_ref, y_ref = x[index], y[index]
+        examples.append(
+            {
+                "prompt": prompt_fn(x_ref, y_ref),
+                "best_reference_score": y_ref.max().item()
+            }
+        )
 
     return Dataset.from_list(examples)

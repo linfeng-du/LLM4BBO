@@ -1,100 +1,102 @@
 import json
 import logging
-import random
+import os
+
+# Prevent `transformers` from using TensorFlow
+os.environ["USE_TF"] = "0"
 
 import hydra
+import wandb
 from omegaconf import DictConfig
-from tqdm import tqdm
 
 import numpy as np
+from vllm import LLM, SamplingParams
 
-import torch
-from transformers import TextGenerationPipeline, pipeline
-
-from dataset import load_evenly_spaced_examples
+from dataset import sample_evenly_spaced_subset
 from prompt import create_parse_fn, create_prompt_fn
+from resolver import register_resolvers
+from thinking_budget import ThinkingBudgetVLLMGeneration
 
 
 logger = logging.getLogger(__name__)
+register_resolvers()
 
 
-@hydra.main(config_path="../conf", config_name="base", version_base=None)
-def test_llm(cfg: DictConfig):
-    pipe = pipeline(
-        task="text-generation",
-        model=cfg.llm.model,
-        device_map="auto",
-        dtype="bfloat16",
-        **cfg.llm.hf_generation_kwargs
+@hydra.main(config_path="../conf", config_name="test", version_base=None)
+def main(cfg: DictConfig) -> None:
+    wandb.init(project="LLM4BBO", dir="outputs", name=cfg.run_name)
+
+    task, x, y, oracle_scaler = sample_evenly_spaced_subset(
+        cfg.task_name, cfg.subset_size
     )
-    test(pipe, cfg)
 
-
-def test(pipe: TextGenerationPipeline, cfg: DictConfig) -> None:
-    task, x, y = load_evenly_spaced_examples(cfg.task_name, cfg.dataset_size)
-
-    # Ensure correct normalization of `y_design`
-    task.dataset.subsample()
-    y_max, y_min = task.dataset.y.max(), task.dataset.y.min()
+    llm = LLM(cfg.model)
+    tokenizer = llm.get_tokenizer()
+    vllm_generation = ThinkingBudgetVLLMGeneration(
+        llm, tokenizer, cfg.test.thinking_budget, cfg.llm.eoth_token
+    )
 
     prompt_fn = create_prompt_fn(cfg.task_name)
     parse_fn = create_parse_fn(cfg.task_name)
 
-    y_design_maxs = []
-    y_design_medians = []
-    best_conversations = []
+    chat_prompts = []
 
-    # Run 8 trials, each generating 128 designs
-    with tqdm(
-        total=cfg.num_trials * cfg.num_designs, desc="Generating designs"
-    ) as pbar:
-        for seed in range(cfg.num_trials):
-            random.seed(seed)
-            np.random.seed(seed)
-            torch.manual_seed(seed)
-            torch.cuda.manual_seed(seed)
+    for seed in range(cfg.test.num_proposals):
+        rng = np.random.default_rng(seed)
+        indices = rng.choice(len(x), size=cfg.test.num_shots, replace=False)
+        chat_prompts.append(prompt_fn(x[indices], y[indices]))
 
-            indices = np.random.choice(
-                len(x), size=cfg.num_designs, replace=False
-            )
-            x_references, y_references = x[indices], y[indices]
-            prompt = prompt_fn(x_references, y_references)
+    prompts = tokenizer.apply_chat_template(
+        chat_prompts, add_generation_prompt=True, tokenize=False
+    )
+    sampling_params = SamplingParams(
+        n=cfg.test.num_trials,
+        **cfg.llm.generation_kwargs
+    )
+    requests = vllm_generation(prompts, sampling_params)
+    completions = [o.text for r in requests for o in r.outputs]
 
-            completions = []
-            x_designs = []
-
-            for _ in range(cfg.num_designs):
-                outputs = pipe(prompt, return_full_text=False)
-                completion = outputs[0]["generated_text"]
-                x_design = parse_fn([completion])
-
-                completions.append(completion)
-                x_designs.append(x_design)
-                pbar.update()
-
-            x_design = np.vstack(x_designs)
-            y_design = task.predict(x_design)
-
-            y_design_max = (y_design.max() - y_min) / (y_max - y_min)
-            y_design_median = (np.median(y_design) - y_min) / (y_max - y_min)
-            best_conversation = prompt + [{
-                "role": "assistant", "content": completions[y_design.argmax()]
-            }]
-
-            y_design_maxs.append(y_design_max)
-            y_design_medians.append(y_design_median)
-            best_conversations.append(best_conversation)
+    x_pred = parse_fn(completions)
+    y_pred = (
+        oracle_scaler.transform(task.predict(x_pred))
+        .reshape(cfg.test.num_trials, cfg.test.num_proposals, order="F")
+    )
+    y_pred_max = y_pred.max(axis=-1)
+    y_pred_median = np.median(y_pred, axis=-1)
 
     results = {
-        "max_mean": np.mean(y_design_maxs).item(),
-        "max_std": np.std(y_design_maxs).item(),
-        "median_mean": np.mean(y_design_medians).item(),
-        "median_std": np.std(y_design_medians).item(),
+        "max_mean": y_pred_max.mean().item(),
+        "max_std": y_pred_max.std().item(),
+        "median_mean": y_pred_median.mean().item(),
+        "median_std": y_pred_median.std().item()
     }
+    logger.info(f"\n{json.dumps(results, indent=4)}")
+    wandb.log({f"test/{k}": v for k, v in results.items()})
 
-    logger.info(json.dumps(results, indent=4))
-    logger.info(json.dumps(best_conversations, indent=4))
+    table = wandb.Table(columns=["trial", "system", "user", "assistant"])
+    chat_strs = []
+
+    for trial_index, proposal_index in enumerate(y_pred.argmax(axis=-1)):
+        chat_prompt = chat_prompts[proposal_index]
+        completion = completions[
+            proposal_index * cfg.test.num_trials + trial_index
+        ]
+        chat_strs.append(
+            f"[SYSTEM PROMPT]\n{chat_prompt[0]['content']}\n\n"
+            f"[USER PROMPT]\n{chat_prompt[1]['content']}\n\n"
+            f"[ASSISTANT COMPLETION]\n{completion}\n\n"
+        )
+        table.add_data(
+            trial_index,
+            chat_prompt[0]["content"],
+            chat_prompt[1]["content"],
+            completion
+        )
+
+    chat_str = f"\n{'-' * 100}\n".join(chat_strs)
+    logger.info(f"\n{chat_str}")
+    wandb.log({"test/chats": table})
 
 
 if __name__ == "__main__":
-    test_llm()
+    main()

@@ -1,10 +1,46 @@
 import logging
+import os
 import sys
+import warnings
+from collections.abc import Generator
+from contextlib import contextmanager
 
-from packaging.version import Version
 
-import deepchem as dc
-import numpy as np
+class WarningErrorFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        print(record.getMessage())
+        return not record.getMessage().startswith(("[-0.  1.]", "MuJoCo"))
+
+
+logging.getLogger().addFilter(WarningErrorFilter())
+warnings.filterwarnings("ignore", module=r"gym")
+
+
+@contextmanager
+def silence_stdout_stderr() -> Generator[None, None, None]:
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    stdout_fd = os.dup(sys.stdout.fileno())
+    stderr_fd = os.dup(sys.stderr.fileno())
+
+    try:
+        os.dup2(devnull_fd, sys.stdout.fileno())
+        os.dup2(devnull_fd, sys.stderr.fileno())
+        yield
+
+    finally:
+        os.dup2(stdout_fd, sys.stdout.fileno())
+        os.dup2(stderr_fd, sys.stderr.fileno())
+
+        os.close(devnull_fd)
+        os.close(stdout_fd)
+        os.close(stderr_fd)
+
+
+with silence_stdout_stderr():
+    from packaging.version import Version
+
+    import deepchem as dc
+    import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +69,7 @@ if Version(dc.__version__) == Version("2.5.0"):
         load_vocab
     )
 
-    # Copied from deepchem 2.8.0
+    # https://github.com/deepchem/deepchem/blob/2.8.0/deepchem/feat/smiles_tokenizer.py#L68
     def __init__(
         self,
         vocab_file: str = '',

@@ -1,22 +1,64 @@
 defaults:
-  - llm: qwen3-4b-instruct
+  - llm: qwen3-4b
   - _self_
 
 hydra:
   run:
     dir: outputs/${run_name}
 
-run_name: "${hydra:runtime.choices.llm}/\
-  ${task_name}/d${dataset_size}_s${num_shots}"
+stage_to_run_name:
+  base: ${hydra:runtime.choices.llm}/${task}/ss${subset_size}
+  sft: ${stage_to_run_name.base}/sft/${stringify:${sft}}
+  offline_rl: ${stage_to_run_name.base}/offline_rl/${stringify:${offline_rl}}
+  online_rl: ${stage_to_run_name.base}/online_rl/${stringify:${online_rl}}
 
-task_name: ???
-dataset_size: 500
-num_shots: 10
+stage_to_model:
+  base: ${llm.model}
+  sft: ${get_model:outputs/${stage_to_run_name.sft}}
+  offline_rl: ${get_model:outputs/${stage_to_run_name.offline_rl}}
+  online_rl: ${get_model:outputs/${stage_to_run_name.online_rl}}
 
-# offline RL
-num_candidates: 20
-num_permutations: 2
+task_to_task_name:
+  tf8: TFBind8-Exact-v0
+  tf10: TFBind10-Exact-v0
+  ant: AntMorphology-Exact-v0
+  dkitty: DKittyMorphology-Exact-v0
 
-# test
-num_trials: 8
-num_designs: 128
+task_name: ${task_to_task_name.${task}}
+
+build_dataset:
+  task_name: ${task_name}
+  subset_size: ${subset_size}
+  val_size: 0.2
+  seed: 42
+
+training_arguments:
+  output_dir: outputs/${run_name}
+  report_to: wandb
+  eval_strategy: epoch
+  save_strategy: best
+  save_total_limit: 1
+  metric_for_best_model: eval_loss
+
+task: tf8
+subset_size: 500
+
+sft:
+  response_ratio: 0.5
+  num_candidates: 20
+  num_shots: 10
+  num_permutations: 2
+
+offline_rl:
+  base_model: sft
+  response_ratio: 0.5
+  num_candidates: 20
+  num_permutations: 2
+  num_shots: 10
+  scale_reward: true
+
+online_rl:
+  base_model: offline_rl
+  dataset_size: 500
+  num_shots: 10
+  thinking_budget: 1024

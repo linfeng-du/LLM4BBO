@@ -1,13 +1,15 @@
 #!/bin/bash
 
 tasks='tf8,tf10,ant,dkitty'
+stage='base'
 
-TEMP=$(getopt --options '' --longoptions 'tasks:' --name "$0" -- "$@")
+TEMP=$(getopt --options '' --longoptions 'tasks:,stage:' --name "$0" -- "$@")
 eval set -- "${TEMP}"
 
 while true; do
   case "$1" in
     --tasks) tasks="$2"; shift 2 ;;
+    --stage) stage="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
@@ -16,13 +18,13 @@ done
 IFS=',' read -ra tasks <<< "${tasks}"
 
 for task in "${tasks[@]}"; do
-    job_name="${task}/base"
+    job_name="${task}/test_${stage}"
     log_dir="outputs/slurm/${job_name}"
 
     wrap_cmds=(
       'source ~/.bashrc;'
       'activate llm4bbo;'
-      "python src/test.py task=${task}"
+      "python src/test.py task=${task} stage=${stage}"
     )
     wrap_cmd="${wrap_cmds[*]}"
 

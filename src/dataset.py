@@ -1,8 +1,7 @@
-import logging
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import wandb
 from tqdm import tqdm
 
 import patches, design_bench
@@ -15,9 +14,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from prompt import create_prompt_fn
-
-
-logger = logging.getLogger(__name__)
 
 
 def sample_evenly_spaced_subset(
@@ -103,30 +99,60 @@ def build_dataset(
 
     rng = np.random.default_rng(seed)
 
-    if stage in {"sft", "offline_rl"}:
-        train_dataset = _build_offline_dataset(
+    if stage == "sft":
+        train_dataset = _build_offline_rl_dataset(
             task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
         )
-        val_dataset = _build_offline_dataset(
+        val_dataset = _build_offline_rl_dataset(
             task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
         )
 
-        if stage == "offline_rl":
-            assert scale_reward is not None
+        train_dataset = (
+            train_dataset.filter(lambda example: example["reward"] > 0)
+            .remove_columns("reward")
+        )
+        val_dataset = (
+            val_dataset.filter(lambda example: example["reward"] > 0)
+            .remove_columns("reward")
+        )
 
-            if scale_reward:
-                # Scale rewards by inverse of the global std
-                r_train_std = np.std(train_dataset["reward"]).item()
-                assert r_train_std > 0
+    elif stage == "offline_rl":
+        assert scale_reward is not None
 
-                def scale_fn(example: Mapping[str, Any]) -> dict[str, float]:
-                    return {"reward": example["reward"] / r_train_std}
+        train_dataset = _build_offline_rl_dataset(
+            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
+        )
+        val_dataset = _build_offline_rl_dataset(
+            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
+        )
 
-                train_dataset = train_dataset.map(scale_fn)
-                val_dataset = val_dataset.map(scale_fn)
-        else:
-            train_dataset = train_dataset.remove_columns("reward")
-            val_dataset = val_dataset.remove_columns("reward")
+        if scale_reward:
+            # Scale rewards by inverse of the global std
+            r_train_std = np.std(train_dataset["reward"]).item()
+            assert r_train_std > 0
+
+            train_dataset = train_dataset.map(
+                lambda example: {"reward": example["reward"] / r_train_std}
+            )
+            val_dataset = val_dataset.map(
+                lambda example: {"reward": example["reward"] / r_train_std}
+            )
+
+        train_ratio = np.mean(np.array(train_dataset["reward"]) > 0).item()
+        val_ratio = np.mean(np.array(val_dataset["reward"]) > 0).item()
+
+        table = wandb.Table(
+            columns=["split", "positive_reward_ratio"],
+            data=[["train", train_ratio], ["validation", val_ratio]]
+        )
+        wandb.log({
+            "dataset/positive_reward_ratio": wandb.plot.bar(
+                table,
+                label="split",
+                value="positive_reward_ratio",
+                title="Positive Reward Ratio"
+            )
+        })
 
     elif stage == "online_rl":
         train_dataset = _build_online_rl_dataset(
@@ -142,7 +168,7 @@ def build_dataset(
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
-def _build_offline_dataset(
+def _build_offline_rl_dataset(
     task_name: str,
     task: Task,
     x: np.ndarray,
@@ -177,7 +203,6 @@ def _build_offline_dataset(
     prompt_fn = create_prompt_fn(task_name)
 
     examples = []
-    positive_rewards = []
 
     for x_resp, y_norm_resp, sim in tqdm(
         zip(x_response, y_norm_response, similarity, strict=True),
@@ -217,9 +242,7 @@ def _build_offline_dataset(
                     "reward": reward
                 }
             )
-            positive_rewards.append(reward > 0)
 
-    logger.info(f"Positive reward ratio: {np.mean(positive_rewards)}")
     return Dataset.from_list(examples)
 
 

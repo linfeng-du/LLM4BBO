@@ -18,9 +18,9 @@ register_resolvers()
 
 @hydra.main(config_path="../conf", config_name="sft", version_base=None)
 def train_sft(cfg: DictConfig):
-    dataset = build_dataset(stage="sft", **cfg.build_dataset)
-
     wandb.init(project="LLM4BBO", dir="outputs", name=cfg.run_name)
+
+    dataset = build_dataset(stage="sft", **cfg.build_dataset)
 
     trainer = SFTTrainer(
         cfg.llm.model,

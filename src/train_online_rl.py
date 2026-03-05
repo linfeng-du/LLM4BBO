@@ -30,9 +30,9 @@ register_resolvers()
 
 @hydra.main(config_path="../conf", config_name="online_rl", version_base=None)
 def train_online_rl(cfg: DictConfig):
-    dataset = build_dataset(stage="online_rl", **cfg.build_dataset)
-
     wandb.init(project="LLM4BBO", dir="outputs", name=cfg.run_name)
+
+    dataset = build_dataset(stage="online_rl", **cfg.build_dataset)
 
     trainer = ThinkingBudgetGRPOTrainer(
         cfg.base_model,

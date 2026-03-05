@@ -23,9 +23,12 @@ training_arguments:
   per_device_eval_batch_size: 16
   # GRPOConfig
   num_generations: 16
-  max_completion_length: 16384
+  max_completion_length: ${llm.max_tokens}
   generation_batch_size: 16
-  generation_kwargs: ${llm.generation_kwargs}
+  temperature: ${llm.temperature}
+  top_p: ${llm.top_p}
+  top_k: ${llm.top_k}
+  min_p: ${llm.min_p}
   use_vllm: true
   vllm_mode: server
   vllm_server_host: trig0002

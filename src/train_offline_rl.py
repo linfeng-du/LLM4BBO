@@ -25,14 +25,14 @@ register_resolvers()
 
 @hydra.main(config_path="../conf", config_name="offline_rl", version_base=None)
 def train_offline_rl(cfg: DictConfig):
+    wandb.init(project="LLM4BBO", dir="outputs", name=cfg.run_name)
+
     dataset = build_dataset(stage="offline_rl", **cfg.build_dataset)
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.llm.model)
 
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
-
-    wandb.init(project="LLM4BBO", dir="outputs", name=cfg.run_name)
 
     trainer = OfflineRLTrainer(
         cfg.base_model,

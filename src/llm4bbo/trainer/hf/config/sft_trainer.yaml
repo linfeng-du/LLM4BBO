@@ -25,6 +25,7 @@ sft_config:
   bf16: true
   report_to: wandb
   eval_strategy: epoch
+  per_device_eval_batch_size: 4
   save_strategy: best
   save_total_limit: 1
   metric_for_best_model: eval_loss

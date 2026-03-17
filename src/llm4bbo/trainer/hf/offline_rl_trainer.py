@@ -1,12 +1,14 @@
 import os
-from typing import Any
-
-# Prevent `transformers` from using TensorFlow
 os.environ["USE_TF"] = "0"
+
+import gc
+from typing import Any
 
 import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
+
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -16,35 +18,58 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from trl import SFTConfig, SFTTrainer
 from trl.trainer.sft_trainer import DataCollatorForLanguageModeling
 
-from dataset import build_dataset
-from resolver import register_resolvers
+from llm4bbo.dataset import build_dataset
+from llm4bbo.trainer.hf.evaluate import evaluate
+from llm4bbo.trainer.hf.utils import get_best_model, update_config
 
 
-register_resolvers()
+@hydra.main(
+    config_path="config", config_name="offline_rl_trainer", version_base=None
+)
+def main(cfg: DictConfig) -> None:
+    update_config(cfg)
+    main_offline_rl(cfg)
 
 
-@hydra.main(config_path="../conf", config_name="offline_rl", version_base=None)
-def train_offline_rl(cfg: DictConfig):
-    wandb.init(project="LLM4BBO", dir="outputs", name=cfg.run_name)
+def main_offline_rl(cfg: DictConfig) -> None:
+    wandb.init(**OmegaConf.to_container(cfg.wandb_init, resolve=True))
 
-    dataset = build_dataset(stage="offline_rl", **cfg.build_dataset)
+    dataset = build_dataset(**cfg.build_dataset)
+
+    train_ratio = np.mean(np.array(dataset["train"]["reward"]) > 0).item()
+    val_ratio = np.mean(np.array(dataset["validation"]["reward"]) > 0).item()
+
+    table = wandb.Table(
+        columns=["split", "positive_reward_ratio"],
+        data=[["train", train_ratio], ["validation", val_ratio]]
+    )
+    wandb.log({"dataset/positive_reward_ratio": table})
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.llm.model)
 
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
+    if cfg.init_from == "base":
+        model = cfg.llm.model
+    else:
+        model = get_best_model(cfg)
+
     trainer = OfflineRLTrainer(
-        cfg.base_model,
-        args=SFTConfig(
-            **OmegaConf.to_container(cfg.training_arguments, resolve=True)
-        ),
+        model,
+        args=SFTConfig(**OmegaConf.to_container(cfg.sft_config, resolve=True)),
         data_collator=OfflineRLDataCollator(tokenizer.pad_token_id),
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
         processing_class=tokenizer
     )
     trainer.train()
+
+    del trainer
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    evaluate(cfg)
 
 
 class OfflineRLTrainer(SFTTrainer):
@@ -96,4 +121,4 @@ class OfflineRLDataCollator(DataCollatorForLanguageModeling):
 
 
 if __name__ == "__main__":
-    train_offline_rl()
+    main()

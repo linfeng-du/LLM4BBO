@@ -1,0 +1,41 @@
+defaults:
+  - evaluate
+  - _self_
+
+stage: offline_rl
+init_from: sft
+
+build_dataset:
+  stage: ${stage}
+  subset_size: 500
+  val_size: 0.2
+  seed: 42
+  scale_reward: true
+  response_ratio: 0.5
+  num_candidates: 20
+  num_permutations: 2
+  num_shots: 10
+
+sft_config:
+  # TrainingArguments
+  output_dir: ${output_dir}
+  per_device_train_batch_size: 2
+  num_train_epochs: 30
+  # https://arxiv.org/pdf/2510.13786
+  learning_rate: 5e-7
+  lr_scheduler_type: constant
+  warmup_steps: 100
+  weight_decay: 0.01
+  adam_epsilon: 1e-15
+  gradient_accumulation_steps: 4
+  bf16: true
+  report_to: wandb
+  eval_strategy: epoch
+  save_strategy: best
+  save_total_limit: 1
+  metric_for_best_model: eval_loss
+  # SFTConfig
+  model_init_kwargs:
+    dtype: bfloat16
+  max_length: null
+  

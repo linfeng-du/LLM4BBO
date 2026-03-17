@@ -1,15 +1,16 @@
-## Install `mujoco200`
+## Install MuJoCo 200
 
-Download and extract `mujoco200`.
+Download and extract the MuJoCo 200 binaries and the license key.
 
 ```bash
-mkdir ~/.mujoco && cd ~/.mujoco
+mkdir -p ~/.mujoco && cd ~/.mujoco
 wget https://www.roboti.us/download/mujoco200_linux.zip
 wget https://www.roboti.us/file/mjkey.txt
-unzip mujoco200_linux.zip && mv mujoco200_linux mujoco200
+unzip mujoco200_linux.zip
+mv mujoco200_linux mujoco200
 ```
 
-Add the following lines to `~/.bashrc`:
+Add the following lines to `~/.bashrc` to update the library path, then run `source ~/.bashrc`:
 
 ```bash
 if [[ ! ":$LD_LIBRARY_PATH:" =~ ":$HOME/.mujoco/mujoco200/bin:" ]]; then
@@ -19,31 +20,26 @@ fi
 
 ## Environment Setup
 
-Create virtual environment.
+Create a virtual environment and install the package.
 
 ```bash
 virtualenv --no-download llm4bbo
 source llm4bbo/bin/activate
+python -m pip install 'pip<24.1'
+pip install -e .
 ```
 
-Install packages from `requirements.txt`.
+`mujoco_py` performs runtime compilation during its first import.
 
 ```bash
-pip install -r requirements.txt
+pip install 'cython<3'
+python -c 'import mujoco_py'
 ```
 
-Install `design-bench` and `morphing-agents`.
-
-```bash
-pip install design-bench==2.0.20
-python -m pip install 'pip<24.1' 'Cython<3'
-pip install morphing-agents==1.5.1
-```
-
-Download [design_bench_data](https://drive.google.com/file/d/1OhhFUTiQCRb6pdyB1tqpy-qNKYbH1WFm/view?usp=sharing), extract into `site-packages`.
+Download [`design_bench_data`](https://drive.google.com/file/d/1OhhFUTiQCRb6pdyB1tqpy-qNKYbH1WFm/view?usp=sharing) and extract it into `site-packages`.
 
 ```bash
 pip install gdown
 gdown 1OhhFUTiQCRb6pdyB1tqpy-qNKYbH1WFm
-unzip design_bench_data.zip -d llm4bbo/lib/python3.11/site-packages/
+unzip design_bench_data.zip -d $(python -c 'import site; print(site.getsitepackages()[0])')
 ```

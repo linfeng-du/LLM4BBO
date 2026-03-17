@@ -2,7 +2,6 @@ import ast
 import re
 from collections.abc import Callable
 from functools import partial
-from types import MappingProxyType
 
 import numpy as np
 from transformers.pipelines.text_generation import ChatType
@@ -220,41 +219,35 @@ def _morphology_parse_fn(
     return np.array([parse_completion(c) for c in completions])
 
 
-PROMPT_FN_REGISTRY = MappingProxyType(
-    {
-        "TFBind8-Exact-v0": (
-            TFBIND_SYSTEM_PROMPT.format(length=8, factor="SIX6_REF_R1"),
-            TFBIND_USER_PROMPT,
-            _tfbind_stringify_fn
-        ),
-        "TFBind10-Exact-v0": (
-            TFBIND_SYSTEM_PROMPT.format(length=10, factor="Pho4"),
-            TFBIND_USER_PROMPT,
-            _tfbind_stringify_fn
-        ),
-        "AntMorphology-Exact-v0": (
-            ANT_MORPHOLOGY_SYSTEM_PROMPT,
-            MORPHOLOGY_USER_PROMPT,
-            _morphology_stringify_fn
-        ),
-        "DKittyMorphology-Exact-v0": (
-            DKITTY_MORPHOLOGY_SYSTEM_PROMPT,
-            MORPHOLOGY_USER_PROMPT,
-            _morphology_stringify_fn
-        )
-    }
-)
+PROMPT_FN_REGISTRY = {
+    "TFBind8-Exact-v0": (
+        TFBIND_SYSTEM_PROMPT.format(length=8, factor="SIX6_REF_R1"),
+        TFBIND_USER_PROMPT,
+        _tfbind_stringify_fn
+    ),
+    "TFBind10-Exact-v0": (
+        TFBIND_SYSTEM_PROMPT.format(length=10, factor="Pho4"),
+        TFBIND_USER_PROMPT,
+        _tfbind_stringify_fn
+    ),
+    "AntMorphology-Exact-v0": (
+        ANT_MORPHOLOGY_SYSTEM_PROMPT,
+        MORPHOLOGY_USER_PROMPT,
+        _morphology_stringify_fn
+    ),
+    "DKittyMorphology-Exact-v0": (
+        DKITTY_MORPHOLOGY_SYSTEM_PROMPT,
+        MORPHOLOGY_USER_PROMPT,
+        _morphology_stringify_fn
+    )
+}
 
 
-PARSE_FN_REGISTRY = MappingProxyType(
-    {
-        "TFBind8-Exact-v0": partial(_tfbind_parse_fn, sequence_length=8),
-        "TFBind10-Exact-v0": partial(_tfbind_parse_fn, sequence_length=10),
-        "AntMorphology-Exact-v0": partial(
-            _morphology_parse_fn, num_parameters=60
-        ),
-        "DKittyMorphology-Exact-v0": partial(
-            _morphology_parse_fn, num_parameters=56
-        )
-    }
-)
+PARSE_FN_REGISTRY = {
+    "TFBind8-Exact-v0": partial(_tfbind_parse_fn, sequence_length=8),
+    "TFBind10-Exact-v0": partial(_tfbind_parse_fn, sequence_length=10),
+    "AntMorphology-Exact-v0": partial(_morphology_parse_fn, num_parameters=60),
+    "DKittyMorphology-Exact-v0": partial(
+        _morphology_parse_fn, num_parameters=56
+    )
+}

@@ -1,19 +1,94 @@
 from pathlib import Path
 from typing import Any
 
-import wandb
 from tqdm import tqdm
 
-import patches, design_bench
-from datasets import Dataset, DatasetDict
+import llm4bbo.patches, design_bench
 from design_bench.task import Task
+
+from datasets import Dataset, DatasetDict
 
 import numpy as np
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from prompt import create_prompt_fn
+from .prompt import create_prompt_fn
+
+
+def build_dataset(
+    task_name: str,
+    stage: str,
+    subset_size: int,
+    val_size: int | float,
+    seed: int,
+    scale_reward: bool | None = None,
+    **kwargs: Any
+) -> DatasetDict:
+    task, x, y, _ = sample_evenly_spaced_subset(task_name, subset_size)
+
+    x_train, x_val, y_train, y_val = train_test_split(
+        x, y, test_size=val_size, random_state=seed
+    )
+
+    # Min-max normalize y to ensure a consistent reward scale across tasks
+    scaler = MinMaxScaler()
+    y_train_norm = scaler.fit_transform(y_train)
+    y_val_norm = scaler.transform(y_val)
+
+    rng = np.random.default_rng(seed)
+
+    if stage == "sft":
+        train_dataset = _build_offline_rl_dataset(
+            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
+        )
+        val_dataset = _build_offline_rl_dataset(
+            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
+        )
+
+        train_dataset = (
+            train_dataset.filter(lambda example: example["reward"] > 0)
+            .remove_columns("reward")
+        )
+        val_dataset = (
+            val_dataset.filter(lambda example: example["reward"] > 0)
+            .remove_columns("reward")
+        )
+
+    elif stage == "offline_rl":
+        assert scale_reward is not None
+
+        train_dataset = _build_offline_rl_dataset(
+            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
+        )
+        val_dataset = _build_offline_rl_dataset(
+            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
+        )
+
+        if scale_reward:
+            # Scale rewards by inverse of the global std
+            r_train_std = np.std(train_dataset["reward"]).item()
+            assert r_train_std > 0
+
+            train_dataset = train_dataset.map(
+                lambda example: {"reward": example["reward"] / r_train_std}
+            )
+            val_dataset = val_dataset.map(
+                lambda example: {"reward": example["reward"] / r_train_std}
+            )
+
+    elif stage == "online_rl":
+        train_dataset = _build_online_rl_dataset(
+            task_name, x_train, y_train, rng=rng, **kwargs
+        )
+        val_dataset = _build_online_rl_dataset(
+            task_name, x_val, y_val, rng=rng, **kwargs
+        )
+
+    else:
+        raise ValueError(f"Invalid stage: {stage}")
+
+    return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
 def sample_evenly_spaced_subset(
@@ -77,97 +152,6 @@ def _load_relabeled_dataset(
     return task, x, y, oracle_scaler
 
 
-def build_dataset(
-    task_name: str,
-    subset_size: int,
-    stage: str,
-    val_size: int | float,
-    seed: int,
-    scale_reward: bool | None = None,
-    **kwargs: Any
-) -> DatasetDict:
-    task, x, y, _ = sample_evenly_spaced_subset(task_name, subset_size)
-
-    x_train, x_val, y_train, y_val = train_test_split(
-        x, y, test_size=val_size, random_state=seed
-    )
-
-    # Min-max normalize y to ensure a consistent reward scale across tasks
-    scaler = MinMaxScaler()
-    y_train_norm = scaler.fit_transform(y_train)
-    y_val_norm = scaler.transform(y_val)
-
-    rng = np.random.default_rng(seed)
-
-    if stage == "sft":
-        train_dataset = _build_offline_rl_dataset(
-            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
-        )
-        val_dataset = _build_offline_rl_dataset(
-            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
-        )
-
-        train_dataset = (
-            train_dataset.filter(lambda example: example["reward"] > 0)
-            .remove_columns("reward")
-        )
-        val_dataset = (
-            val_dataset.filter(lambda example: example["reward"] > 0)
-            .remove_columns("reward")
-        )
-
-    elif stage == "offline_rl":
-        assert scale_reward is not None
-
-        train_dataset = _build_offline_rl_dataset(
-            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
-        )
-        val_dataset = _build_offline_rl_dataset(
-            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
-        )
-
-        if scale_reward:
-            # Scale rewards by inverse of the global std
-            r_train_std = np.std(train_dataset["reward"]).item()
-            assert r_train_std > 0
-
-            train_dataset = train_dataset.map(
-                lambda example: {"reward": example["reward"] / r_train_std}
-            )
-            val_dataset = val_dataset.map(
-                lambda example: {"reward": example["reward"] / r_train_std}
-            )
-
-        train_ratio = np.mean(np.array(train_dataset["reward"]) > 0).item()
-        val_ratio = np.mean(np.array(val_dataset["reward"]) > 0).item()
-
-        table = wandb.Table(
-            columns=["split", "positive_reward_ratio"],
-            data=[["train", train_ratio], ["validation", val_ratio]]
-        )
-        wandb.log({
-            "dataset/positive_reward_ratio": wandb.plot.bar(
-                table,
-                label="split",
-                value="positive_reward_ratio",
-                title="Positive Reward Ratio"
-            )
-        })
-
-    elif stage == "online_rl":
-        train_dataset = _build_online_rl_dataset(
-            task_name, x_train, y_train, rng=rng, **kwargs
-        )
-        val_dataset = _build_online_rl_dataset(
-            task_name, x_val, y_val, rng=rng, **kwargs
-        )
-
-    else:
-        raise ValueError(f"Invalid stage: {stage}")
-
-    return DatasetDict({"train": train_dataset, "validation": val_dataset})
-
-
 def _build_offline_rl_dataset(
     task_name: str,
     task: Task,
@@ -176,8 +160,8 @@ def _build_offline_rl_dataset(
     y_norm: np.ndarray,
     response_ratio: float,
     num_candidates: int,
-    num_shots: int,
     num_permutations: int,
+    num_shots: int,
     rng: np.random.Generator
 ) -> Dataset:
     # Partition the dataset into disjoint response and prompt subsets

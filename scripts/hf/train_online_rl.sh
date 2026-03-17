@@ -22,7 +22,6 @@ for task in "${tasks[@]}"; do
   wrap_cmds=(
     'source ~/.bashrc;'
     'activate llm4bbo;'
-    'export OMP_NUM_THREADS=1;'
     "python -m llm4bbo.trainer.hf.online_rl_trainer task=${task}"
   )
   wrap_cmd="${wrap_cmds[*]}"

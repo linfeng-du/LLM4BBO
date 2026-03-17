@@ -9,10 +9,11 @@ hydra:
 task: tf8
 stage: base
 subset_size: 500
+output_dir: outputs/${wandb_init.name}
 
 wandb_init:
   project: LLM4BBO-HF
-  dir: outputs/${.name}
+  dir: ${output_dir}
   name: "${hydra:runtime.choices.llm}/${task}/ss${subset_size}/\
     ${stage}/${now:%Y-%m-%d_%H-%M-%S}"
   job_type: ${stage}

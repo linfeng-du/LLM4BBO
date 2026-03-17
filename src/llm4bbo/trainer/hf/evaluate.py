@@ -84,7 +84,7 @@ def evaluate(cfg: DictConfig) -> None:
     output_dir = Path(cfg.output_dir)
 
     (output_dir / "evaluate.json").write_text(json.dumps(results, indent=2))
-    wandb.log({f"evaluate/{k}": v for k, v in results.items()})
+    wandb.summary.update({f"evaluate/{k}": v for k, v in results.items()})
 
     best_conversations = []
     table = wandb.Table(columns=["trial", "system", "user", "assistant"])
@@ -110,7 +110,7 @@ def evaluate(cfg: DictConfig) -> None:
     (output_dir / "best_conversations.json").write_text(
         json.dumps(best_conversations, indent=2)
     )
-    wandb.log({"evaluate/best_conversations": table})
+    wandb.summary["evaluate/best_conversations"] = table
 
 
 if __name__ == "__main__":

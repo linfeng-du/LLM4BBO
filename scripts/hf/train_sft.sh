@@ -30,7 +30,7 @@ for task in "${tasks[@]}"; do
   mkdir -p "${log_dir}"
   sbatch \
     --job-name="${job_name}" \
-    --time='00-04' \
+    --time='00-05' \
     --gpus-per-node='1' \
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \

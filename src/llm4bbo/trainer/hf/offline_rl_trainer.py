@@ -43,7 +43,7 @@ def main_offline_rl(cfg: DictConfig) -> None:
         columns=["split", "positive_reward_ratio"],
         data=[["train", train_ratio], ["validation", val_ratio]]
     )
-    wandb.log({"dataset/positive_reward_ratio": table})
+    wandb.summary["dataset/positive_reward_ratio"] = table
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.llm.model)
 

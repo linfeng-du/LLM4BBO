@@ -16,7 +16,7 @@ from llm4bbo.dataset import (
     create_prompt_fn,
     sample_evenly_spaced_subset
 )
-from llm4bbo.trainer.hf.thinking_budget import ThinkingBudgetVLLMGeneration
+from llm4bbo.trainer.hf.thinking_budget import ThinkingBudgetVLLMGenerate
 from llm4bbo.trainer.hf.utils import get_model, update_config
 
 
@@ -39,7 +39,7 @@ def evaluate(cfg: DictConfig) -> None:
 
     llm = LLM(model)
     tokenizer = llm.get_tokenizer()
-    vllm_generation = ThinkingBudgetVLLMGeneration(
+    vllm_generate = ThinkingBudgetVLLMGenerate(
         llm, tokenizer, cfg.evaluate.thinking_budget
     )
 
@@ -62,7 +62,8 @@ def evaluate(cfg: DictConfig) -> None:
         n=cfg.evaluate.num_trials,
         **cfg.llm.sampling_params
     )
-    requests = vllm_generation(prompts, sampling_params)
+
+    requests = vllm_generate(prompts, sampling_params)
     completions = [o.text for r in requests for o in r.outputs]
 
     x_pred = parse_fn(completions)
@@ -72,6 +73,7 @@ def evaluate(cfg: DictConfig) -> None:
             cfg.evaluate.num_trials, cfg.evaluate.num_proposals, order="F"
         )
     )
+
     y_pred_max = y_pred.max(axis=-1)
     y_pred_median = np.median(y_pred, axis=-1)
 
@@ -94,6 +96,7 @@ def evaluate(cfg: DictConfig) -> None:
         completion = completions[
             proposal_index * cfg.evaluate.num_trials + trial_index
         ]
+
         best_conversations.append({
             "trial": trial_index,
             "system": chat_prompt[0]["content"],

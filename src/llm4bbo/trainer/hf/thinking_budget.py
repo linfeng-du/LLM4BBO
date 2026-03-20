@@ -16,7 +16,7 @@ I have to give the solution based on the thinking directly now.
 """
 
 
-class ThinkingBudgetVLLMGeneration:
+class ThinkingBudgetVLLMGenerate:
     def __init__(
         self,
         vllm_client_or_llm: VLLMClient | LLM,

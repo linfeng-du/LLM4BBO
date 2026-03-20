@@ -40,7 +40,7 @@ def evaluate(cfg: DictConfig) -> None:
     llm = LLM(model)
     tokenizer = llm.get_tokenizer()
     vllm_generation = ThinkingBudgetVLLMGeneration(
-        llm, tokenizer, cfg.evaluate.thinking_budget, cfg.llm.eoth_token
+        llm, tokenizer, cfg.evaluate.thinking_budget
     )
 
     prompt_fn = create_prompt_fn(cfg.task_name)

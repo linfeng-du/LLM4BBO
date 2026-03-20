@@ -1,5 +1,4 @@
 model: Qwen/Qwen3-4B
-eoth_token: </think>
 
 # https://huggingface.co/Qwen/Qwen3-4B#best-practices
 sampling_params:

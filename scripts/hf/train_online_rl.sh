@@ -26,8 +26,9 @@ for task in "${tasks[@]}"; do
   wrap_cmds=(
     'source ~/.bashrc;'
     'activate llm4bbo;'
-    "python -m llm4bbo.trainer.hf.online_rl_trainer "
-    "task=${task} grpo_config.vllm_server_host=${host}"
+    'python -m llm4bbo.trainer.hf.online_rl_trainer'
+    "task=${task}"
+    "grpo_config.vllm_server_host=${host}"
   )
   wrap_cmd="${wrap_cmds[*]}"
 

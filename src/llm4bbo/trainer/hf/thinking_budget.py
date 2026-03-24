@@ -1,3 +1,5 @@
+import copy
+from collections.abc import Callable
 from typing import Any
 
 from transformers import PreTrainedTokenizerBase
@@ -16,63 +18,63 @@ I have to give the solution based on the thinking directly now.
 """
 
 
+ServerGenerateOutput = dict[str, list[list[int]] | list[list[float]]]
+ColocateGenerateOutput = list[RequestOutput]
+
+
 class ThinkingBudgetVLLMGenerate:
     def __init__(
         self,
-        vllm_client_or_llm: VLLMClient | LLM,
+        generate: Callable[..., ServerGenerateOutput | ColocateGenerateOutput],
         tokenizer: PreTrainedTokenizerBase,
         thinking_budget: int
     ) -> None:
-        assert isinstance(vllm_client_or_llm, (VLLMClient, LLM))
-
-        if isinstance(vllm_client_or_llm, VLLMClient):
-            self.vllm_mode = "server"
-            self.vllm_client = vllm_client_or_llm
-        elif isinstance(vllm_client_or_llm, LLM):
-            self.vllm_mode = "colocate"
-            self.llm = vllm_client_or_llm
-
+        self.generate = generate
         self.tokenizer = tokenizer
         self.thinking_budget = thinking_budget
 
         self.eos_token_id = self.tokenizer.eos_token_id
-        self.eoth_token_id = self.tokenizer.convert_tokens_to_ids("</think>")
         assert self.eos_token_id is not None
+
+        self.eoth_token_id = self.tokenizer.convert_tokens_to_ids("</think>")
         assert self.eoth_token_id != self.tokenizer.unk_token_id
 
         self.stop_thinking_ids = self.tokenizer.encode(
             STOP_THINKING_PROMPT, add_special_tokens=False
         )
 
-    def __call__(self, *args: Any, **kwargs: Any) -> (
-        list[RequestOutput] | dict[str, list[list[int]] | list[list[float]]]
-    ):
-        if self.vllm_mode == "server":
+    def __call__(
+        self,
+        *args: Any,
+        **kwargs: Any
+    ) -> ServerGenerateOutput | ColocateGenerateOutput:
+        if isinstance(self.generate.__self__, VLLMClient):
             return self._server_call(*args, **kwargs)
-        elif self.vllm_mode == "colocate":
+        elif isinstance(self.generate.__self__, LLM):
             return self._colocate_call(*args, **kwargs)
         else:
-            raise ValueError(f"Invalid vLLM mode: {self.vllm_mode}")
+            raise TypeError(
+                f"Invalid type for `self.generate.__self__`: "
+                f"{type(self.generate.__self__)}"
+            )
 
     def _server_call(
         self,
-        prompts: list[str],
-        sampling_params: dict[str, Any]
-    ) -> dict[str, list[list[int]] | list[list[float]]]:
-        assert sampling_params["generation_kwargs"] is None
-        max_tokens = sampling_params["max_tokens"]
+        prompts: list[list[int]],
+        **kwargs: Any
+    ) -> ServerGenerateOutput:
+        assert "stop" not in kwargs["generation_kwargs"]
+        assert "stop_token_ids" not in kwargs["generation_kwargs"]
+        max_tokens = kwargs["max_tokens"]
 
         # Stage 1: Generate thinking up to `self.thinking_budget` tokens
-        stage_1_params = sampling_params.copy()
-        stage_1_params["max_tokens"] = (
+        stage_1_kwargs = copy.deepcopy(kwargs)
+        stage_1_kwargs["max_tokens"] = (
             self.thinking_budget - len(self.stop_thinking_ids)
         )
-        stage_1_params["generation_kwargs"] = {
-            "stop": "</think>\n\n",
-            "include_stop_str_in_output": True
-        }
+        stage_1_kwargs["generation_kwargs"]["stop"] = ["</think>\n\n"]
 
-        stage_1_output = self.vllm_client.generate(prompts, **stage_1_params)
+        stage_1_output = self.generate(prompts, **stage_1_kwargs)
 
         # Stage 2: Generate the final answer
         stage_2_prompts = []
@@ -89,22 +91,19 @@ class ThinkingBudgetVLLMGenerate:
             if self.eoth_token_id not in completion_ids:
                 # Stop the thinking by inserting `self.stop_thinking_ids`
                 completion_ids += self.stop_thinking_ids
-                logprobs += [0.0] * len(self.stop_thinking_ids)
+                logprobs += [[0.0]] * len(self.stop_thinking_ids)
 
-            prompt_index = completion_index // sampling_params["n"]
-            stage_1_prompt_ids = stage_1_output["prompt_ids"][prompt_index]
-            stage_2_prompt_ids = stage_1_prompt_ids + completion_ids
-            stage_2_prompt = self.tokenizer.decode(stage_2_prompt_ids)
+            prompt_index = completion_index // kwargs["n"]
+            prompt_ids = stage_1_output["prompt_ids"][prompt_index]
+            stage_2_prompt_ids = prompt_ids + completion_ids
 
-            stage_2_prompts.append(stage_2_prompt)
+            stage_2_prompts.append(stage_2_prompt_ids)
 
-        stage_2_params = sampling_params.copy()
-        stage_2_params["n"] = 1
-        stage_2_params["max_tokens"] = max_tokens - self.thinking_budget
+        stage_2_kwargs = copy.deepcopy(kwargs)
+        stage_2_kwargs["n"] = 1
+        stage_2_kwargs["max_tokens"] = max_tokens - self.thinking_budget
 
-        stage_2_output = self.vllm_client.generate(
-            stage_2_prompts, **stage_2_params
-        )
+        stage_2_output = self.generate(stage_2_prompts, **stage_2_kwargs)
 
         # Combine the outputs from stage 1 and stage 2
         for (
@@ -126,10 +125,10 @@ class ThinkingBudgetVLLMGenerate:
 
     def _colocate_call(
         self,
-        prompts: list[str],
+        prompts: list[dict[str, list[int]]],
         sampling_params: SamplingParams,
-        use_tqdm: bool = True
-    ) -> list[RequestOutput]:
+        **kwargs: Any
+    ) -> ColocateGenerateOutput:
         assert not sampling_params.stop
         assert not sampling_params.stop_token_ids
         max_tokens = sampling_params.max_tokens
@@ -142,9 +141,7 @@ class ThinkingBudgetVLLMGenerate:
         stage_1_params.stop = ["</think>\n\n"]
         stage_1_params.include_stop_str_in_output = True
 
-        stage_1_requests = self.llm.generate(
-            prompts, stage_1_params, use_tqdm=use_tqdm
-        )
+        stage_1_requests = self.generate(prompts, stage_1_params, **kwargs)
 
         # Stage 2: Generate the final answer
         stage_1_indices = []
@@ -174,8 +171,8 @@ class ThinkingBudgetVLLMGenerate:
         stage_2_params.n = 1
         stage_2_params.max_tokens = max_tokens - self.thinking_budget
 
-        stage_2_requests = self.llm.generate(
-            stage_2_prompts, stage_2_params, use_tqdm=use_tqdm
+        stage_2_requests = self.generate(
+            stage_2_prompts, stage_2_params, **kwargs
         )
 
         # Combine the outputs from stage 1 and stage 2

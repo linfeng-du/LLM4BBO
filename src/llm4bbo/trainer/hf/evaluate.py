@@ -39,8 +39,8 @@ def evaluate(cfg: DictConfig) -> None:
 
     llm = LLM(model)
     tokenizer = llm.get_tokenizer()
-    vllm_generate = ThinkingBudgetVLLMGenerate(
-        llm, tokenizer, cfg.evaluate.thinking_budget
+    llm.generate = ThinkingBudgetVLLMGenerate(
+        llm.generate, tokenizer, cfg.evaluate.thinking_budget
     )
 
     prompt_fn = create_prompt_fn(cfg.task_name)
@@ -55,15 +55,16 @@ def evaluate(cfg: DictConfig) -> None:
         )
         chat_prompts.append(prompt_fn(x[indices], y[indices]))
 
-    prompts = tokenizer.apply_chat_template(
-        chat_prompts, add_generation_prompt=True, tokenize=False
+    prompt_ids = tokenizer.apply_chat_template(
+        chat_prompts, add_generation_prompt=True
     )
+    prompts = [{"prompt_token_ids": ids} for ids in prompt_ids]
     sampling_params = SamplingParams(
         n=cfg.evaluate.num_trials,
         **cfg.llm.sampling_params
     )
 
-    requests = vllm_generate(prompts, sampling_params)
+    requests = llm.generate(prompts, sampling_params)
     completions = [o.text for r in requests for o in r.outputs]
 
     x_pred = parse_fn(completions)

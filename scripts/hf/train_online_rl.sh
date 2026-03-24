@@ -1,12 +1,14 @@
 #!/bin/bash
 
+time='01-00'
 tasks='tf8,tf10,ant,dkitty'
 
-TEMP=$(getopt --options '' --longoptions 'tasks:' --name "$0" -- "$@")
+TEMP=$(getopt --options '' --longoptions 'time:,tasks:' --name "$0" -- "$@")
 eval set -- "${TEMP}"
 
 while true; do
   case "$1" in
+    --time) time="$2"; shift 2 ;;
     --tasks) tasks="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -29,7 +31,7 @@ for task in "${tasks[@]}"; do
   mkdir -p "${log_dir}"
   sbatch \
     --job-name="${job_name}" \
-    --time='00-12' \
+    --time="${time}" \
     --gpus-per-node='1' \
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \

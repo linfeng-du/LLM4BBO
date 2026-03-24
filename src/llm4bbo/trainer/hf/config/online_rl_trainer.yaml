@@ -47,6 +47,7 @@ grpo_config:
   use_vllm: true
   vllm_mode: server
   vllm_server_host: ???
+  vllm_server_port: ???
   epsilon: 0.2
   epsilon_high: 0.28
   loss_type: dapo

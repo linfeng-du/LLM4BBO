@@ -2,18 +2,26 @@
 
 time='01-00'
 model="Qwen/Qwen3-4B"
+port=''
 
-TEMP=$(getopt --options '' --longoptions 'time:,model:' --name "$0" -- "$@")
+LONGOPTIONS='time:,model:,port:'
+TEMP=$(getopt --options '' --longoptions "${LONGOPTIONS}" --name "$0" -- "$@")
 eval set -- "${TEMP}"
 
 while true; do
   case "$1" in
     --time) time="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
+    --port) port="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
+
+if [[ -z "${port}" ]]; then
+  echo "Missing --port" >&2
+  exit 1
+fi
 
 job_name="vllm_serve/${model}"
 log_dir="outputs/slurm/${job_name}"
@@ -22,7 +30,7 @@ wrap_cmds=(
     'source ~/.bashrc;'
     'activate llm4bbo;'
     'export USE_TF=0;'
-    "trl vllm-serve --model ${model}"
+    "trl vllm-serve --model ${model} --port ${port}"
 )
 wrap_cmd="${wrap_cmds[*]}"
 

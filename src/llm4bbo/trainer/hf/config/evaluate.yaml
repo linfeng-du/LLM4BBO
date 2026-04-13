@@ -16,7 +16,6 @@ wandb_init:
   dir: ${output_dir}
   name: "${hydra:runtime.choices.llm}/${task}/ss${subset_size}/\
     ${stage}/${now:%Y-%m-%d_%H-%M-%S}"
-  job_type: ${stage}
 
 evaluate:
   num_trials: 8

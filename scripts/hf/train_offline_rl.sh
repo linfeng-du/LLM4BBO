@@ -16,6 +16,7 @@ while true; do
 done
 
 IFS=',' read -ra tasks <<< "${tasks}"
+hydra_overrides=("$@")
 
 for task in "${tasks[@]}"; do
   job_name="${task}/offline_rl"
@@ -25,7 +26,9 @@ for task in "${tasks[@]}"; do
     'source ~/.bashrc;'
     'activate llm4bbo;'
     'export OMP_NUM_THREADS=1;'
-    "python -m llm4bbo.trainer.hf.offline_rl_trainer task=${task}"
+    'python -m llm4bbo.trainer.hf.offline_rl_trainer'
+    "task=${task}"
+    "${hydra_overrides[@]}"
   )
   wrap_cmd="${wrap_cmds[*]}"
 

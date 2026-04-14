@@ -2,10 +2,10 @@
 
 time='01-00'
 tasks='tf8,tf10,ant,dkitty'
-vllm_server_host=''
-vllm_server_port=''
+host=''
+port=''
 
-LONGOPTIONS='time:,tasks:,vllm_server_host:,vllm_server_port:'
+LONGOPTIONS='time:,tasks:,host:,port:'
 TEMP=$(getopt --options '' --longoptions "${LONGOPTIONS}" --name "$0" -- "$@")
 eval set -- "${TEMP}"
 
@@ -13,19 +13,20 @@ while true; do
   case "$1" in
     --time) time="$2"; shift 2 ;;
     --tasks) tasks="$2"; shift 2 ;;
-    --vllm_server_host) vllm_server_host="$2"; shift 2 ;;
-    --vllm_server_port) vllm_server_port="$2"; shift 2 ;;
+    --host) host="$2"; shift 2 ;;
+    --port) port="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
-if [[ -z "${vllm_server_host}" ]] || [[ -z "${vllm_server_port}" ]]; then
-  echo "Missing --vllm_server_host or --vllm_server_port" >&2
+if [[ -z "${host}" || -z "${port}" ]]; then
+  echo "Missing --host or --port" >&2
   exit 1
 fi
 
 IFS=',' read -ra tasks <<< "${tasks}"
+hydra_overrides=("$@")
 
 for task in "${tasks[@]}"; do
   job_name="${task}/online_rl"
@@ -36,8 +37,9 @@ for task in "${tasks[@]}"; do
     'activate llm4bbo;'
     'python -m llm4bbo.trainer.hf.online_rl_trainer'
     "task=${task}"
-    "grpo_config.vllm_server_host=${vllm_server_host}"
-    "grpo_config.vllm_server_port=${vllm_server_port}"
+    "grpo_config.vllm_server_host=${host}"
+    "grpo_config.vllm_server_port=${port}"
+    "${hydra_overrides[@]}"
   )
   wrap_cmd="${wrap_cmds[*]}"
 
@@ -46,7 +48,7 @@ for task in "${tasks[@]}"; do
     --job-name="${job_name}" \
     --time="${time}" \
     --gpus-per-node='1' \
-    --exclude="${vllm_server_host}" \
+    --exclude="${host}" \
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \
     --wrap="${wrap_cmd}"

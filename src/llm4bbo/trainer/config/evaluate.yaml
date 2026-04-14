@@ -12,10 +12,10 @@ subset_size: 500
 output_dir: outputs/${wandb_init.name}
 
 wandb_init:
-  project: LLM4BBO-HF
+  project: LLM4BBO
   dir: ${output_dir}
-  name: "${hydra:runtime.choices.llm}/${task}/ss${subset_size}/\
-    ${stage}/${now:%Y-%m-%d_%H-%M-%S}"
+  name: "${hydra:runtime.choices.llm}/${task}/ss${subset_size}/${stage}/\
+    ${now:%Y-%m-%d_%H-%M-%S}"
 
 evaluate:
   num_trials: 8

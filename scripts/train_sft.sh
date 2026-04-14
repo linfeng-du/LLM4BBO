@@ -36,7 +36,8 @@ for task in "${tasks[@]}"; do
   sbatch \
     --job-name="${job_name}" \
     --time="${time}" \
-    --gpus-per-node='1' \
+    --gres='gpu:h100:1' \
+    --mem='192500M' \
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \
     --wrap="${wrap_cmd}"

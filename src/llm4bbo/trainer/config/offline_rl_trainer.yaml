@@ -7,7 +7,7 @@ init_from: sft
 
 build_dataset:
   stage: ${stage}
-  subset_size: 500
+  subset_size: ${subset_size}
   val_size: 0.2
   seed: 42
   scale_reward: true

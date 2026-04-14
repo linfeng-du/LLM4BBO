@@ -14,7 +14,14 @@ TASK_MAP = {
 
 def update_config(cfg: DictConfig) -> None:
     OmegaConf.update(cfg, "task_name", TASK_MAP[cfg.task], force_add=True)
-    config = {"llm": cfg.llm, "evaluate": cfg.evaluate}
+
+    config = {
+        "llm": cfg.llm,
+        "task": cfg.task,
+        "stage": cfg.stage,
+        "subset_size": cfg.subset_size,
+        "evaluate": cfg.evaluate
+    }
 
     if hasattr(cfg, "build_dataset"):
         OmegaConf.update(

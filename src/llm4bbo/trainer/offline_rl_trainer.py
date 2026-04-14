@@ -19,8 +19,8 @@ from trl import SFTConfig, SFTTrainer
 from trl.trainer.sft_trainer import DataCollatorForLanguageModeling
 
 from llm4bbo.dataset import build_dataset
-from llm4bbo.trainer.hf.evaluate import evaluate
-from llm4bbo.trainer.hf.utils import get_best_model, update_config
+from llm4bbo.trainer.evaluate import evaluate
+from llm4bbo.trainer.utils import get_best_model, update_config
 
 
 @hydra.main(

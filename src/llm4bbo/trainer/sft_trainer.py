@@ -11,8 +11,8 @@ import torch
 from trl import SFTConfig, SFTTrainer
 
 from llm4bbo.dataset import build_dataset
-from llm4bbo.trainer.hf.evaluate import evaluate
-from llm4bbo.trainer.hf.utils import update_config
+from llm4bbo.trainer.evaluate import evaluate
+from llm4bbo.trainer.utils import update_config
 
 
 @hydra.main(config_path="config", config_name="sft_trainer", version_base=None)

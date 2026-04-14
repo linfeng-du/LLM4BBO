@@ -22,9 +22,9 @@ from trl import GRPOConfig, GRPOTrainer
 
 from llm4bbo.dataset import build_dataset, create_parse_fn
 from llm4bbo.reward.gaussian_process_improved import ImprovedExactGPModel
-from llm4bbo.trainer.hf.evaluate import evaluate
-from llm4bbo.trainer.hf.thinking_budget import ThinkingBudgetVLLMGenerate
-from llm4bbo.trainer.hf.utils import get_best_model, update_config
+from llm4bbo.trainer.evaluate import evaluate
+from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
+from llm4bbo.trainer.utils import get_best_model, update_config
 
 
 @hydra.main(

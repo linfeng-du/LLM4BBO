@@ -16,8 +16,8 @@ from llm4bbo.dataset import (
     create_prompt_fn,
     sample_evenly_spaced_subset
 )
-from llm4bbo.trainer.hf.thinking_budget import ThinkingBudgetVLLMGenerate
-from llm4bbo.trainer.hf.utils import get_model, update_config
+from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
+from llm4bbo.trainer.utils import get_model, update_config
 
 
 @hydra.main(config_path="config", config_name="evaluate", version_base=None)

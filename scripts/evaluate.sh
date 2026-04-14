@@ -1,6 +1,6 @@
 #!/bin/bash
 
-time='00-05'
+time='00-02'
 tasks='tf8,tf10,ant,dkitty'
 
 TEMP=$(getopt --options '' --longoptions 'time:,tasks:' --name "$0" -- "$@")
@@ -16,19 +16,15 @@ while true; do
 done
 
 IFS=',' read -ra tasks <<< "${tasks}"
-hydra_overrides=("$@")
 
 for task in "${tasks[@]}"; do
-  job_name="${task}/offline_rl"
+  job_name="${task}/evaluate"
   log_dir="outputs/slurm/${job_name}"
 
   wrap_cmds=(
     'source ~/.bashrc;'
     'activate llm4bbo;'
-    'export OMP_NUM_THREADS=1;'
-    'python -m llm4bbo.trainer.hf.offline_rl_trainer'
-    "task=${task}"
-    "${hydra_overrides[@]}"
+    "python -m llm4bbo.trainer.evaluate task=${task}"
   )
   wrap_cmd="${wrap_cmds[*]}"
 

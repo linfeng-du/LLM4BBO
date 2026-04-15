@@ -16,8 +16,6 @@ dependencies = [
     "numpy==2.1.1",
     "omegaconf==2.3.0",
     "scikit-learn==1.8.0",
-    "tinker==0.15.0",
-    "tinker-cookbook @ git+https://github.com/thinking-machines-lab/tinker-cookbook.git@main",
     "torch==2.9.0",
     "tqdm==4.67.3",
     "transformers==4.57.6",

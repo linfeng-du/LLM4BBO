@@ -36,10 +36,10 @@ wrap_cmd="${wrap_cmds[*]}"
 
 mkdir -p "${log_dir}"
 sbatch \
-    --job-name="${job_name}" \
-    --time="${time}" \
-    --gres='gpu:h100:1' \
-    --mem='192500M' \
-    --output="${log_dir}/%j.out" \
-    --error="${log_dir}/%j.err" \
-    --wrap="${wrap_cmd}"
+  --job-name="${job_name}" \
+  --time="${time}" \
+  --gres='gpu:h100:1' \
+  --mem='192500M' \
+  --output="${log_dir}/%j.out" \
+  --error="${log_dir}/%j.err" \
+  --wrap="${wrap_cmd}"

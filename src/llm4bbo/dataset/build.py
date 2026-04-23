@@ -1,4 +1,4 @@
-from pathlib import Path
+from importlib import resources
 from typing import Any
 
 from tqdm import tqdm
@@ -110,7 +110,7 @@ def sample_evenly_spaced_subset(
 def _load_relabeled_dataset(
     task_name: str
 ) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    relabeled_dir = Path("data") / "relabeled_datasets"
+    relabeled_dir = resources.files("llm4bbo") / "data" / "relabeled_datasets"
     task = design_bench.make(task_name)
 
     # Used to normalize oracle predictions

@@ -3,7 +3,7 @@ os.environ["USE_TF"] = "0"
 
 import gc
 from collections.abc import Callable
-from pathlib import Path
+from importlib import resources
 from typing import Any
 
 import hydra
@@ -51,7 +51,7 @@ def main_online_rl(cfg: DictConfig) -> None:
 
     trainer = GRPOTrainer(
         model,
-        reward_funcs=[create_oracle_prediction_reward(cfg.task_name)],
+        reward_funcs=[create_gaussian_process_reward(cfg.task_name)],
         args=GRPOConfig(
             **OmegaConf.to_container(cfg.grpo_config, resolve=True)
         ),
@@ -120,31 +120,16 @@ def thinking_budget_rollout_func(
     }
 
 
-def create_oracle_prediction_reward(
-    task_name: str
-) -> Callable[[list[ChatType], list[float]], list[float]]:
-    task = design_bench.make(task_name)
-    parse_fn = create_parse_fn(task_name)
-
-    def oracle_prediction_reward(
-        completions: list[ChatType],
-        best_reference_score: list[float],
-        **kwargs: Any,
-    ) -> list[float]:
-        x_pred = parse_fn([c[0]["content"] for c in completions])
-        y_pred = task.predict(x_pred).squeeze(axis=-1)
-        return (y_pred - np.array(best_reference_score)).tolist()
-
-    return oracle_prediction_reward
-
-
 def create_gaussian_process_reward(
     task_name: str
 ) -> Callable[[list[ChatType], list[float]], list[float]]:
     task = design_bench.make(task_name)
     parse_fn = create_parse_fn(task_name)
 
-    checkpoint_path = Path("data") / "gp_models" / f"gp_model_{task_name}_0.pt"
+    checkpoint_path = (
+        resources.files("llm4bbo")
+        / "data" / "gp_models" / f"gp_model_{task_name}_0.pt"
+    )
     device = "cuda" if torch.cuda.is_available() else "cpu"
     checkpoint = torch.load(checkpoint_path, map_location=device)
 

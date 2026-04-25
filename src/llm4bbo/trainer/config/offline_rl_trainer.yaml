@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 stage: offline_rl
-init_from: sft
+init_from: ???
 
 build_dataset:
   stage: ${stage}

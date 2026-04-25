@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 stage: online_rl
-init_from: offline_rl
+init_from: ???
 thinking_budget: 1024
 
 build_dataset:
@@ -36,18 +36,17 @@ grpo_config:
   # GRPOConfig
   model_init_kwargs:
     dtype: bfloat16
+    attn_implementation: flash_attention_2
   num_generations: 8
   num_generations_eval: 2
   max_completion_length: ${llm.sampling_params.max_tokens}
-  generation_batch_size: 64
+  generation_batch_size: 32
   temperature: ${llm.sampling_params.temperature}
   top_p: ${llm.sampling_params.top_p}
   top_k: ${llm.sampling_params.top_k}
   min_p: ${llm.sampling_params.min_p}
   use_vllm: true
-  vllm_mode: server
-  vllm_server_host: ???
-  vllm_server_port: ???
+  vllm_mode: ???
   epsilon: 0.2
   epsilon_high: 0.28
   loss_type: dapo

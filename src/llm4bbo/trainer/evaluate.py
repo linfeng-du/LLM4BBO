@@ -9,6 +9,8 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 
 import numpy as np
+
+import llm4bbo.patches
 from vllm import LLM, SamplingParams
 
 from llm4bbo.dataset import (

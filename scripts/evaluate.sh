@@ -34,6 +34,6 @@ for task in "${tasks[@]}"; do
 
 source ~/.bashrc
 activate llm4bbo
-python -m llm4bbo.trainer.evaluate task=${task}
+python -m llm4bbo.trainer.evaluate task=${task} ${@@Q}
 EOF
 done

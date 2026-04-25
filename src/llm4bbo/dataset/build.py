@@ -19,16 +19,16 @@ from .prompt import create_prompt_fn
 def build_dataset(
     task_name: str,
     stage: str,
-    subset_size: int,
-    val_size: int | float,
+    num_designs: int,
+    val_design_ratio: float,
     seed: int,
     scale_reward: bool | None = None,
     **kwargs: Any
 ) -> DatasetDict:
-    task, x, y, _ = sample_evenly_spaced_subset(task_name, subset_size)
+    task, x, y, _ = sample_evenly_spaced_designs(task_name, num_designs)
 
     x_train, x_val, y_train, y_val = train_test_split(
-        x, y, test_size=val_size, random_state=seed
+        x, y, test_size=val_design_ratio, random_state=seed
     )
 
     # Min-max normalize y to ensure a consistent reward scale across tasks
@@ -91,16 +91,15 @@ def build_dataset(
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
-def sample_evenly_spaced_subset(
+def sample_evenly_spaced_designs(
     task_name: str,
-    subset_size: int
+    num_designs: int
 ) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
     task, x, y, oracle_scaler = _load_relabeled_dataset(task_name)
 
     sorted_index = y.squeeze(axis=-1).argsort()
     spaced_index = (
-        np.linspace(0, len(sorted_index) - 1, num=subset_size)
-        .round().astype(int)
+        np.linspace(0, len(sorted_index) - 1, num_designs).round().astype(int)
     )
     index = sorted_index[spaced_index]
 
@@ -128,14 +127,10 @@ def _load_relabeled_dataset(
 
         # Patch `task.predict` to use relabeled y
         text = (relabeled_dir / "parsed_tf10.txt").read_text()
-        table = {
-            k: float(v)
-            for line in text.splitlines()
-            for k, v in [line.split()]
-        }
+        table = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
 
         def tfbind10_predict(x: np.ndarray) -> np.ndarray:
-            x_char = np.array(['A', 'C', 'G', 'T'])[x]
+            x_char = np.array(["A", "C", "G", "T"])[x]
             return np.array([[table["".join(x)]] for x in x_char])
 
         task.predict = tfbind10_predict
@@ -184,13 +179,12 @@ def _build_offline_rl_dataset(
     else:
         raise ValueError(f"Invalid task: {task_name}")
 
-    prompt_fn = create_prompt_fn(task_name)
-
     examples = []
+    prompt_fn = create_prompt_fn(task_name)
 
     for x_resp, y_norm_resp, sim in tqdm(
         zip(x_response, y_norm_response, similarity, strict=True),
-        desc=f"Building offline RL dataset for {task_name}",
+        desc="Building offline RL dataset",
         total=len(x_response)
     ):
         # Retrieve candidates with the highest kernel-based similarity
@@ -208,10 +202,7 @@ def _build_offline_rl_dataset(
             # Negative reward: sample from all candidates
             index = rng.permutation(num_candidates)[:num_shots]
 
-        x_ref, y_ref, y_norm_ref = (
-            x_cand[index], y_cand[index], y_norm_cand[index]
-        )
-
+        x_ref, y_ref, y_norm_ref = x_cand[index], y_cand[index], y_norm_cand[index]
         reward = (y_norm_resp - y_norm_ref.max()).item()
 
         # Include different permutations of the references
@@ -238,12 +229,10 @@ def _build_online_rl_dataset(
     num_shots: int,
     rng: np.random.Generator
 ) -> Dataset:
-    prompt_fn = create_prompt_fn(task_name)
     examples = []
+    prompt_fn = create_prompt_fn(task_name)
 
-    for _ in tqdm(
-        range(dataset_size), desc=f"Building online RL dataset for {task_name}"
-    ):
+    for _ in tqdm(range(dataset_size), desc="Building online RL dataset"):
         index = rng.choice(len(x), size=num_shots, replace=False)
         x_ref, y_ref = x[index], y[index]
         examples.append(

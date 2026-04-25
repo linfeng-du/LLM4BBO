@@ -1,5 +1,5 @@
 defaults:
-  - llm: qwen3-4b
+  - llm: qwen3-0.6b
   - _self_
 
 hydra:
@@ -8,13 +8,13 @@ hydra:
 
 task: tf8
 stage: base
-subset_size: 500
+num_designs: 500
 output_dir: outputs/${wandb_init.name}
 
 wandb_init:
   project: LLM4BBO
   dir: ${output_dir}
-  name: "${hydra:runtime.choices.llm}/${task}/ss${subset_size}/${stage}/\
+  name: "${hydra:runtime.choices.llm}/${task}/nd${num_designs}/${stage}/\
     ${now:%Y-%m-%d_%H-%M-%S}"
 
 evaluate:

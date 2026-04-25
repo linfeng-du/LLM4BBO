@@ -21,13 +21,6 @@ for task in "${tasks[@]}"; do
   job_name="${task}/evaluate"
   log_dir="outputs/slurm/${job_name}"
 
-  wrap_cmds=(
-    'source ~/.bashrc;'
-    'activate llm4bbo;'
-    "python -m llm4bbo.trainer.evaluate task=${task}"
-  )
-  wrap_cmd="${wrap_cmds[*]}"
-
   mkdir -p "${log_dir}"
   sbatch \
     --job-name="${job_name}" \
@@ -36,5 +29,11 @@ for task in "${tasks[@]}"; do
     --mem='192500M' \
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \
-    --wrap="${wrap_cmd}"
+    <<EOF
+#!/bin/bash
+
+source ~/.bashrc
+activate llm4bbo
+python -m llm4bbo.trainer.evaluate task=${task}
+EOF
 done

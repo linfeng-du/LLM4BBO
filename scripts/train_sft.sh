@@ -16,21 +16,10 @@ while true; do
 done
 
 IFS=',' read -ra tasks <<< "${tasks}"
-hydra_overrides=("$@")
 
 for task in "${tasks[@]}"; do
   job_name="${task}/sft"
   log_dir="outputs/slurm/${job_name}"
-
-  wrap_cmds=(
-    'source ~/.bashrc;'
-    'activate llm4bbo;'
-    'export OMP_NUM_THREADS=1;'
-    'python -m llm4bbo.trainer.sft_trainer'
-    "task=${task}"
-    "${hydra_overrides[@]}"
-  )
-  wrap_cmd="${wrap_cmds[*]}"
 
   mkdir -p "${log_dir}"
   sbatch \
@@ -40,5 +29,12 @@ for task in "${tasks[@]}"; do
     --mem='192500M' \
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \
-    --wrap="${wrap_cmd}"
+    <<EOF
+#!/bin/bash
+
+source ~/.bashrc
+activate llm4bbo
+export OMP_NUM_THREADS=1
+python -m llm4bbo.trainer.sft_trainer task="${task}" ${@@Q}
+EOF
 done

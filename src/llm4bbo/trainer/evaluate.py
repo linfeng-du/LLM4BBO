@@ -14,7 +14,7 @@ from vllm import LLM, SamplingParams
 from llm4bbo.dataset import (
     create_parse_fn,
     create_prompt_fn,
-    sample_evenly_spaced_subset
+    sample_evenly_spaced_designs
 )
 from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
 from llm4bbo.trainer.utils import get_model, update_config
@@ -28,8 +28,8 @@ def main(cfg: DictConfig) -> None:
 
 
 def evaluate(cfg: DictConfig) -> None:
-    task, x, y, oracle_scaler = sample_evenly_spaced_subset(
-        cfg.task_name, cfg.subset_size
+    task, x, y, oracle_scaler = sample_evenly_spaced_designs(
+        cfg.task_name, cfg.num_designs
     )
 
     if cfg.stage == "base":
@@ -43,38 +43,27 @@ def evaluate(cfg: DictConfig) -> None:
         llm.generate, tokenizer, cfg.evaluate.thinking_budget
     )
 
-    prompt_fn = create_prompt_fn(cfg.task_name)
-    parse_fn = create_parse_fn(cfg.task_name)
-
     chat_prompts = []
+    prompt_fn = create_prompt_fn(cfg.task_name)
 
     for seed in range(cfg.evaluate.num_proposals):
         rng = np.random.default_rng(seed)
-        indices = rng.choice(
-            len(x), size=cfg.evaluate.num_shots, replace=False
-        )
+        indices = rng.choice(len(x), cfg.evaluate.num_shots, replace=False)
         chat_prompts.append(prompt_fn(x[indices], y[indices]))
 
-    prompt_ids = tokenizer.apply_chat_template(
-        chat_prompts, add_generation_prompt=True
-    )
+    prompt_ids = tokenizer.apply_chat_template(chat_prompts, add_generation_prompt=True)
     prompts = [{"prompt_token_ids": ids} for ids in prompt_ids]
-    sampling_params = SamplingParams(
-        n=cfg.evaluate.num_trials,
-        **cfg.llm.sampling_params
-    )
+    sampling_params = SamplingParams(cfg.evaluate.num_trials, **cfg.llm.sampling_params)
 
     requests = llm.generate(prompts, sampling_params)
     completions = [o.text for r in requests for o in r.outputs]
+    parse_fn = create_parse_fn(cfg.task_name)
 
     x_pred = parse_fn(completions)
     y_pred = (
         oracle_scaler.transform(task.predict(x_pred))
-        .reshape(
-            cfg.evaluate.num_trials, cfg.evaluate.num_proposals, order="F"
-        )
+        .reshape(cfg.evaluate.num_trials, cfg.evaluate.num_proposals, order="F")
     )
-
     y_pred_max = y_pred.max(axis=-1)
     y_pred_median = np.median(y_pred, axis=-1)
 
@@ -84,6 +73,7 @@ def evaluate(cfg: DictConfig) -> None:
         "median_mean": y_pred_median.mean().item(),
         "median_std": y_pred_median.std().item()
     }
+
     output_dir = Path(cfg.output_dir)
 
     (output_dir / "evaluate.json").write_text(json.dumps(results, indent=2))
@@ -94,16 +84,16 @@ def evaluate(cfg: DictConfig) -> None:
 
     for trial_index, proposal_index in enumerate(y_pred.argmax(axis=-1)):
         chat_prompt = chat_prompts[proposal_index]
-        completion = completions[
-            proposal_index * cfg.evaluate.num_trials + trial_index
-        ]
+        completion = completions[proposal_index * cfg.evaluate.num_trials + trial_index]
 
-        best_conversations.append({
-            "trial": trial_index,
-            "system": chat_prompt[0]["content"],
-            "user": chat_prompt[1]["content"],
-            "assistant": completion,
-        })
+        best_conversations.append(
+            {
+                "trial": trial_index,
+                "system": chat_prompt[0]["content"],
+                "user": chat_prompt[1]["content"],
+                "assistant": completion
+            }
+        )
         table.add_data(
             trial_index,
             chat_prompt[0]["content"],

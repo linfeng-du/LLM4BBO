@@ -11,7 +11,6 @@ import wandb
 from omegaconf import DictConfig, OmegaConf
 
 import llm4bbo.patches, design_bench
-import numpy as np
 
 import gpytorch
 import torch
@@ -27,9 +26,7 @@ from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
 from llm4bbo.trainer.utils import get_best_model, update_config
 
 
-@hydra.main(
-    config_path="config", config_name="online_rl_trainer", version_base=None
-)
+@hydra.main(config_path="config", config_name="online_rl_trainer", version_base=None)
 def main(cfg: DictConfig) -> None:
     update_config(cfg)
     main_online_rl(cfg)
@@ -52,9 +49,7 @@ def main_online_rl(cfg: DictConfig) -> None:
     trainer = GRPOTrainer(
         model,
         reward_funcs=[create_gaussian_process_reward(cfg.task_name)],
-        args=GRPOConfig(
-            **OmegaConf.to_container(cfg.grpo_config, resolve=True)
-        ),
+        args=GRPOConfig(**OmegaConf.to_container(cfg.grpo_config, resolve=True)),
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
         processing_class=tokenizer,
@@ -62,18 +57,12 @@ def main_online_rl(cfg: DictConfig) -> None:
     )
 
     if trainer.vllm_generation.mode == "server":
-        trainer.vllm_generation.vllm_client.generate = (
-            ThinkingBudgetVLLMGenerate(
-                trainer.vllm_generation.vllm_client.generate,
-                tokenizer,
-                cfg.thinking_budget
-            )
+        trainer.vllm_generation.vllm_client.generate = ThinkingBudgetVLLMGenerate(
+            trainer.vllm_generation.vllm_client.generate, tokenizer, cfg.thinking_budget
         )
     elif trainer.vllm_generation.mode == "colocate":
         trainer.vllm_generation.llm.generate = ThinkingBudgetVLLMGenerate(
-            trainer.vllm_generation.llm.generate,
-            tokenizer,
-            cfg.thinking_budget
+            trainer.vllm_generation.llm.generate, tokenizer, cfg.thinking_budget
         )
 
     trainer.train()
@@ -127,8 +116,7 @@ def create_gaussian_process_reward(
     parse_fn = create_parse_fn(task_name)
 
     checkpoint_path = (
-        resources.files("llm4bbo")
-        / "data" / "gp_models" / f"gp_model_{task_name}_0.pt"
+        resources.files("llm4bbo") / "data" / "gp_models" / f"gp_model_{task_name}_0.pt"
     )
     device = "cuda" if torch.cuda.is_available() else "cpu"
     checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -159,10 +147,8 @@ def create_gaussian_process_reward(
         if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
             x_pred = task.to_logits(x_pred).reshape(len(x_pred), -1)
 
-        x_pred = torch.from_numpy(x_pred).to(device, dtype=torch.float32)
-        best_reference_score = torch.tensor(
-            best_reference_score, device=device
-        )
+        x_pred = torch.from_numpy(x_pred).to(device, torch.float32)
+        best_reference_score = torch.tensor(best_reference_score, device=device)
 
         with torch.no_grad(), gpytorch.settings.fast_pred_var():
             distribution = likelihood(model(x_pred))

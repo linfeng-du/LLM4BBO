@@ -6,8 +6,8 @@ stage: sft
 
 build_dataset:
   stage: ${stage}
-  subset_size: ${subset_size}
-  val_size: 0.2
+  num_designs: ${num_designs}
+  val_design_ratio: 0.2
   seed: 42
   response_ratio: 0.5
   num_candidates: 20
@@ -17,10 +17,11 @@ build_dataset:
 sft_config:
   # TrainingArguments
   output_dir: ${output_dir}
-  per_device_train_batch_size: 2
+  per_device_train_batch_size: 4
   num_train_epochs: 50
   learning_rate: 5e-7
   lr_scheduler_type: constant
+  optim: adamw_8bit
   gradient_accumulation_steps: 4
   bf16: true
   report_to: wandb
@@ -32,4 +33,5 @@ sft_config:
   # SFTConfig
   model_init_kwargs:
     dtype: bfloat16
+    attn_implementation: flash_attention_2
   max_length: null

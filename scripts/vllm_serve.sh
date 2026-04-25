@@ -26,14 +26,6 @@ fi
 job_name="vllm_serve/${model}"
 log_dir="outputs/slurm/${job_name}"
 
-wrap_cmds=(
-    'source ~/.bashrc;'
-    'activate llm4bbo;'
-    'export USE_TF=0;'
-    "trl vllm-serve --model ${model} --port ${port}"
-)
-wrap_cmd="${wrap_cmds[*]}"
-
 mkdir -p "${log_dir}"
 sbatch \
   --job-name="${job_name}" \
@@ -42,4 +34,11 @@ sbatch \
   --mem='192500M' \
   --output="${log_dir}/%j.out" \
   --error="${log_dir}/%j.err" \
-  --wrap="${wrap_cmd}"
+  <<EOF
+#!/bin/bash
+
+source ~/.bashrc
+activate llm4bbo
+export USE_TF=0
+trl vllm-serve --model ${model} --port ${port}
+EOF

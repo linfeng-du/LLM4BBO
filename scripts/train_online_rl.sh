@@ -25,21 +25,8 @@ if [[ -z "${task}" || -z "${host}" || -z "${port}" ]]; then
   exit 1
 fi
 
-hydra_overrides=("$@")
-
 job_name="${task}/online_rl"
 log_dir="outputs/slurm/${job_name}"
-
-wrap_cmds=(
-  'source ~/.bashrc;'
-  'activate llm4bbo;'
-  'python -m llm4bbo.trainer.online_rl_trainer'
-  "task=${task}"
-  "grpo_config.vllm_server_host=${host}"
-  "grpo_config.vllm_server_port=${port}"
-  "${hydra_overrides[@]}"
-)
-wrap_cmd="${wrap_cmds[*]}"
 
 mkdir -p "${log_dir}"
 sbatch \
@@ -50,4 +37,14 @@ sbatch \
   --exclude="${host}" \
   --output="${log_dir}/%j.out" \
   --error="${log_dir}/%j.err" \
-  --wrap="${wrap_cmd}"
+  <<EOF
+#!/bin/bash
+
+source ~/.bashrc
+activate llm4bbo
+python -m llm4bbo.trainer.online_rl_trainer \
+  task=${task} \
+  grpo_config.vllm_server_host=${host} \
+  grpo_config.vllm_server_port=${port} \
+  ${@@Q}
+EOF

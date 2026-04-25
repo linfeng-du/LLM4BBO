@@ -19,7 +19,7 @@ def update_config(cfg: DictConfig) -> None:
         "llm": cfg.llm,
         "task": cfg.task,
         "stage": cfg.stage,
-        "subset_size": cfg.subset_size,
+        "num_designs": cfg.num_designs,
         "evaluate": cfg.evaluate
     }
 

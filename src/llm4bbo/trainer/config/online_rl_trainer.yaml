@@ -8,8 +8,8 @@ thinking_budget: 1024
 
 build_dataset:
   stage: ${stage}
-  subset_size: ${subset_size}
-  val_size: 0.2
+  num_designs: ${num_designs}
+  val_design_ratio: 0.2
   seed: 42
   dataset_size: 1000
   num_shots: 10
@@ -19,7 +19,7 @@ grpo_config:
   output_dir: ${output_dir}
   per_device_train_batch_size: 8
   num_train_epochs: 10
-  # https://arxiv.org/pdf/2510.13786
+  # https://openreview.net/pdf?id=FMjeC9Msws
   learning_rate: 5e-7
   lr_scheduler_type: constant
   warmup_steps: 100

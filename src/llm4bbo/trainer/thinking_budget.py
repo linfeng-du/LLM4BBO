@@ -54,7 +54,7 @@ class ThinkingBudgetVLLMGenerate:
             return self._colocate_call(*args, **kwargs)
         else:
             raise TypeError(
-                f"Invalid type for `self.generate.__self__`: "
+                "Invalid type for `self.generate.__self__`: "
                 f"{type(self.generate.__self__)}"
             )
 
@@ -95,9 +95,7 @@ class ThinkingBudgetVLLMGenerate:
 
             prompt_index = completion_index // kwargs["n"]
             prompt_ids = stage_1_output["prompt_ids"][prompt_index]
-            stage_2_prompt_ids = prompt_ids + completion_ids
-
-            stage_2_prompts.append(stage_2_prompt_ids)
+            stage_2_prompts.append(prompt_ids + completion_ids)
 
         stage_2_kwargs = copy.deepcopy(kwargs)
         stage_2_kwargs["n"] = 1
@@ -135,9 +133,7 @@ class ThinkingBudgetVLLMGenerate:
 
         # Stage 1: Generate thinking up to `self.thinking_budget` tokens
         stage_1_params = sampling_params.clone()
-        stage_1_params.max_tokens = (
-            self.thinking_budget - len(self.stop_thinking_ids)
-        )
+        stage_1_params.max_tokens = self.thinking_budget - len(self.stop_thinking_ids)
         stage_1_params.stop = ["</think>\n\n"]
         stage_1_params.include_stop_str_in_output = True
 
@@ -158,8 +154,7 @@ class ThinkingBudgetVLLMGenerate:
 
                     if sampling_params.logprobs is not None:
                         completion.logprobs += [
-                            {s: Logprob(logprob=0.0)}
-                            for s in self.stop_thinking_ids
+                            {s: Logprob(logprob=0.0)} for s in self.stop_thinking_ids
                         ]
 
                 prompt_ids = request.prompt_token_ids + completion.token_ids
@@ -171,9 +166,7 @@ class ThinkingBudgetVLLMGenerate:
         stage_2_params.n = 1
         stage_2_params.max_tokens = max_tokens - self.thinking_budget
 
-        stage_2_requests = self.generate(
-            stage_2_prompts, stage_2_params, **kwargs
-        )
+        stage_2_requests = self.generate(stage_2_prompts, stage_2_params, **kwargs)
 
         # Combine the outputs from stage 1 and stage 2
         for (request_index, completion_index), stage_2_request in zip(
@@ -187,9 +180,7 @@ class ThinkingBudgetVLLMGenerate:
             completion.token_ids += stage_2_completion.token_ids
 
             if sampling_params.logprobs is not None:
-                completion.cumulative_logprob += (
-                    stage_2_completion.cumulative_logprob
-                )
+                completion.cumulative_logprob += stage_2_completion.cumulative_logprob
                 completion.logprobs += stage_2_completion.logprobs
 
             completion.finish_reason = stage_2_completion.finish_reason

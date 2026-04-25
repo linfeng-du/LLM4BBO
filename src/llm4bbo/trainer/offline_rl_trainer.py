@@ -23,9 +23,7 @@ from llm4bbo.trainer.evaluate import evaluate
 from llm4bbo.trainer.utils import get_best_model, update_config
 
 
-@hydra.main(
-    config_path="config", config_name="offline_rl_trainer", version_base=None
-)
+@hydra.main(config_path="config", config_name="offline_rl_trainer", version_base=None)
 def main(cfg: DictConfig) -> None:
     update_config(cfg)
     main_offline_rl(cfg)
@@ -40,8 +38,8 @@ def main_offline_rl(cfg: DictConfig) -> None:
     val_ratio = np.mean(np.array(dataset["validation"]["reward"]) > 0).item()
 
     table = wandb.Table(
-        columns=["split", "positive_reward_ratio"],
-        data=[["train", train_ratio], ["validation", val_ratio]]
+        ["split", "positive_reward_ratio"],
+        [["train", train_ratio], ["validation", val_ratio]]
     )
     wandb.summary["dataset/positive_reward_ratio"] = table
 
@@ -85,10 +83,7 @@ class OfflineRLTrainer(SFTTrainer):
         num_items_in_batch: torch.Tensor | None = None
     ) -> torch.Tensor | tuple[torch.Tensor, CausalLMOutputWithPast]:
         _, outputs = super().compute_loss(
-            model,
-            inputs,
-            return_outputs=True,
-            num_items_in_batch=num_items_in_batch
+            model, inputs, return_outputs=True, num_items_in_batch=num_items_in_batch
         )
 
         # https://github.com/huggingface/transformers/blob/v4.57.6/src/transformers/trainer_pt_utils.py#L553

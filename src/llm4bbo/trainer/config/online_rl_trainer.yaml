@@ -23,6 +23,7 @@ grpo_config:
   learning_rate: 5e-7
   lr_scheduler_type: constant
   warmup_steps: 100
+  optim: adamw_8bit
   weight_decay: 0.01
   adam_epsilon: 1e-15
   gradient_accumulation_steps: 2
@@ -46,8 +47,10 @@ grpo_config:
   top_k: ${llm.sampling_params.top_k}
   min_p: ${llm.sampling_params.min_p}
   use_vllm: true
-  vllm_mode: ???
+  vllm_mode: colocate
+  vllm_max_model_length: ${llm.sampling_params.max_tokens}
+  vllm_enable_sleep_mode: true
   epsilon: 0.2
-  epsilon_high: 0.28
-  loss_type: dapo
+  epsilon_high: 5.0
+  loss_type: cispo
   mask_truncated_completions: true

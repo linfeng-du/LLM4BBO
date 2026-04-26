@@ -39,7 +39,7 @@ def evaluate(cfg: DictConfig) -> None:
     else:
         model = get_model(cfg.output_dir)
 
-    llm = LLM(model)
+    llm = LLM(model, gpu_memory_utilization=0.85)
     tokenizer = llm.get_tokenizer()
     llm.generate = ThinkingBudgetVLLMGenerate(
         llm.generate, tokenizer, cfg.evaluate.thinking_budget

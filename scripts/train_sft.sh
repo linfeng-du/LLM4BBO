@@ -1,6 +1,6 @@
 #!/bin/bash
 
-time='00-05'
+time='00-06'
 tasks='tf8,tf10,ant,dkitty'
 
 TEMP=$(getopt --options '' --longoptions 'time:,tasks:' --name "$0" -- "$@")

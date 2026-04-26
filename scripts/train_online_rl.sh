@@ -30,10 +30,10 @@ for task in "${tasks[@]}"; do
     --output="${log_dir}/%j.out" \
     --error="${log_dir}/%j.err" \
     <<EOF
-  #!/bin/bash
+#!/bin/bash
 
-  source ~/.bashrc
-  activate llm4bbo
-  python -m llm4bbo.trainer.online_rl_trainer task=${task} ${@@Q}
+source ~/.bashrc
+activate llm4bbo
+python -m llm4bbo.trainer.online_rl_trainer task=${task} ${@@Q}
 EOF
 done

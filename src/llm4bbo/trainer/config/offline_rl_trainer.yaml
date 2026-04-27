@@ -29,6 +29,7 @@ sft_config:
   weight_decay: 0.01
   adam_epsilon: 1e-15
   gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
   bf16: true
   report_to: wandb
   eval_strategy: epoch

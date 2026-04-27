@@ -22,7 +22,9 @@ sft_config:
   learning_rate: 5e-7
   lr_scheduler_type: constant
   optim: adamw_8bit
+  weight_decay: 0.01
   gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
   bf16: true
   report_to: wandb
   eval_strategy: epoch

@@ -30,7 +30,7 @@ grpo_config:
   bf16: true
   report_to: wandb
   eval_strategy: epoch
-  per_device_eval_batch_size: 16
+  per_device_eval_batch_size: 8
   save_strategy: best
   save_total_limit: 1
   metric_for_best_model: eval_loss
@@ -38,16 +38,18 @@ grpo_config:
   model_init_kwargs:
     dtype: bfloat16
     attn_implementation: flash_attention_2
+  cast_lm_head_to_fp32: true
   num_generations: 8
   num_generations_eval: 2
   max_completion_length: ${llm.sampling_params.max_tokens}
-  generation_batch_size: 32
+  generation_batch_size: 128
   temperature: ${llm.sampling_params.temperature}
   top_p: ${llm.sampling_params.top_p}
   top_k: ${llm.sampling_params.top_k}
   min_p: ${llm.sampling_params.min_p}
   use_vllm: true
   vllm_mode: colocate
+  vllm_gpu_memory_utilization: 0.85
   vllm_max_model_length: ${llm.sampling_params.max_tokens}
   vllm_enable_sleep_mode: true
   epsilon: 0.2

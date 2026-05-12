@@ -147,6 +147,7 @@ def create_gaussian_process_reward(
         if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
             x_pred = task.to_logits(x_pred).reshape(len(x_pred), -1)
 
+        device = model.train_inputs[0].device
         x_pred = torch.from_numpy(x_pred).to(device, torch.float32)
         best_reference_score = torch.tensor(best_reference_score, device=device)
 

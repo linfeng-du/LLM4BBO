@@ -20,6 +20,7 @@ I have to give the solution based on the thinking directly now.
 
 ServerGenerateOutput = dict[str, list[list[int]] | list[list[float]]]
 ColocateGenerateOutput = list[RequestOutput]
+GenerateOutput = ServerGenerateOutput | ColocateGenerateOutput
 
 
 class ThinkingBudgetVLLMGenerate:
@@ -47,7 +48,7 @@ class ThinkingBudgetVLLMGenerate:
         self,
         *args: Any,
         **kwargs: Any
-    ) -> ServerGenerateOutput | ColocateGenerateOutput:
+    ) -> GenerateOutput | tuple[GenerateOutput, list[int], list[int]]:
         if isinstance(self.generate.__self__, VLLMClient):
             return self._server_call(*args, **kwargs)
         elif isinstance(self.generate.__self__, LLM):
@@ -61,8 +62,9 @@ class ThinkingBudgetVLLMGenerate:
     def _server_call(
         self,
         prompts: list[list[int]],
+        return_length: bool = False,
         **kwargs: Any
-    ) -> ServerGenerateOutput:
+    ) -> ServerGenerateOutput | tuple[ServerGenerateOutput, list[int], list[int]]:
         assert "stop" not in kwargs["generation_kwargs"]
         assert "stop_token_ids" not in kwargs["generation_kwargs"]
         max_tokens = kwargs["max_tokens"]
@@ -103,6 +105,9 @@ class ThinkingBudgetVLLMGenerate:
 
         stage_2_output = self.generate(stage_2_prompts, **stage_2_kwargs)
 
+        thinking_lengths = []
+        answer_lengths = []
+
         # Combine the outputs from stage 1 and stage 2
         for (
             stage_1_completion_ids,
@@ -116,8 +121,13 @@ class ThinkingBudgetVLLMGenerate:
             stage_2_output["logprobs"],
             strict=True
         ):
+            thinking_lengths.append(len(stage_1_completion_ids))
+            answer_lengths.append(len(stage_2_completion_ids))
             stage_1_completion_ids += stage_2_completion_ids
             stage_1_logprobs += stage_2_logprobs
+
+        if return_length:
+            return stage_1_output, thinking_lengths, answer_lengths
 
         return stage_1_output
 
@@ -125,8 +135,9 @@ class ThinkingBudgetVLLMGenerate:
         self,
         prompts: list[dict[str, list[int]]],
         sampling_params: SamplingParams,
+        return_length: bool = False,
         **kwargs: Any
-    ) -> ColocateGenerateOutput:
+    ) -> ColocateGenerateOutput | tuple[ColocateGenerateOutput, list[int], list[int]]:
         assert not sampling_params.stop
         assert not sampling_params.stop_token_ids
         max_tokens = sampling_params.max_tokens
@@ -168,6 +179,9 @@ class ThinkingBudgetVLLMGenerate:
 
         stage_2_requests = self.generate(stage_2_prompts, stage_2_params, **kwargs)
 
+        thinking_lengths = []
+        answer_lengths = []
+
         # Combine the outputs from stage 1 and stage 2
         for (request_index, completion_index), stage_2_request in zip(
             stage_1_indices, stage_2_requests, strict=True
@@ -175,6 +189,9 @@ class ThinkingBudgetVLLMGenerate:
             request = stage_1_requests[request_index]
             completion = request.outputs[completion_index]
             stage_2_completion = stage_2_request.outputs[0]
+
+            thinking_lengths.append(len(completion.token_ids))
+            answer_lengths.append(len(stage_2_completion.token_ids))
 
             completion.text += stage_2_completion.text
             completion.token_ids += stage_2_completion.token_ids
@@ -184,5 +201,8 @@ class ThinkingBudgetVLLMGenerate:
                 completion.logprobs += stage_2_completion.logprobs
 
             completion.finish_reason = stage_2_completion.finish_reason
+
+        if return_length:
+            return stage_1_requests, thinking_lengths, answer_lengths
 
         return stage_1_requests

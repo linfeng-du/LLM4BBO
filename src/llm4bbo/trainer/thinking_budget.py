@@ -28,11 +28,13 @@ class ThinkingBudgetVLLMGenerate:
         self,
         generate: Callable[..., ServerGenerateOutput | ColocateGenerateOutput],
         tokenizer: PreTrainedTokenizerBase,
-        thinking_budget: int
+        thinking_budget: int,
+        answer_budget: int | None = None
     ) -> None:
         self.generate = generate
         self.tokenizer = tokenizer
         self.thinking_budget = thinking_budget
+        self.answer_budget = answer_budget
 
         self.eos_token_id = self.tokenizer.eos_token_id
         assert self.eos_token_id is not None
@@ -101,7 +103,11 @@ class ThinkingBudgetVLLMGenerate:
 
         stage_2_kwargs = copy.deepcopy(kwargs)
         stage_2_kwargs["n"] = 1
-        stage_2_kwargs["max_tokens"] = max_tokens - self.thinking_budget
+
+        if self.answer_budget is not None:
+            stage_2_kwargs["max_tokens"] = self.answer_budget
+        else:
+            stage_2_kwargs["max_tokens"] = max_tokens - self.thinking_budget
 
         stage_2_output = self.generate(stage_2_prompts, **stage_2_kwargs)
 
@@ -175,7 +181,11 @@ class ThinkingBudgetVLLMGenerate:
 
         stage_2_params = sampling_params.clone()
         stage_2_params.n = 1
-        stage_2_params.max_tokens = max_tokens - self.thinking_budget
+
+        if self.answer_budget is not None:
+            stage_2_params.max_tokens = self.answer_budget
+        else:
+            stage_2_params.max_tokens = max_tokens - self.thinking_budget
 
         stage_2_requests = self.generate(stage_2_prompts, stage_2_params, **kwargs)
 

@@ -58,11 +58,17 @@ def main_online_rl(cfg: DictConfig) -> None:
 
     if trainer.vllm_generation.mode == "server":
         trainer.vllm_generation.vllm_client.generate = ThinkingBudgetVLLMGenerate(
-            trainer.vllm_generation.vllm_client.generate, tokenizer, cfg.thinking_budget
+            trainer.vllm_generation.vllm_client.generate,
+            tokenizer,
+            cfg.thinking_budget,
+            cfg.answer_budget
         )
     elif trainer.vllm_generation.mode == "colocate":
         trainer.vllm_generation.llm.generate = ThinkingBudgetVLLMGenerate(
-            trainer.vllm_generation.llm.generate, tokenizer, cfg.thinking_budget
+            trainer.vllm_generation.llm.generate,
+            tokenizer,
+            cfg.thinking_budget,
+            cfg.answer_budget
         )
 
     trainer.train()

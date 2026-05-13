@@ -22,7 +22,6 @@ def build_dataset(
     num_designs: int,
     val_design_ratio: float,
     seed: int,
-    scale_reward: bool | None = None,
     **kwargs: Any
 ) -> DatasetDict:
     task, x, y, _ = sample_evenly_spaced_designs(task_name, num_designs)
@@ -56,7 +55,7 @@ def build_dataset(
         )
 
     elif stage == "offline_rl":
-        assert scale_reward is not None
+        scale_reward = kwargs.pop("scale_reward")
 
         train_dataset = _build_offline_rl_dataset(
             task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs

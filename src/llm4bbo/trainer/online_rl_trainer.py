@@ -2,6 +2,7 @@ import os
 os.environ["USE_TF"] = "0"
 
 import gc
+import multiprocessing as mp
 from collections.abc import Callable
 from importlib import resources
 from typing import Any
@@ -56,14 +57,14 @@ def main_online_rl(cfg: DictConfig) -> None:
         rollout_func=thinking_budget_rollout_func
     )
 
-    if trainer.vllm_generation.mode == "server":
+    if cfg.grpo_config.vllm_mode == "server":
         trainer.vllm_generation.vllm_client.generate = ThinkingBudgetVLLMGenerate(
             trainer.vllm_generation.vllm_client.generate,
             tokenizer,
             cfg.thinking_budget,
             cfg.answer_budget
         )
-    elif trainer.vllm_generation.mode == "colocate":
+    elif cfg.grpo_config.vllm_mode == "colocate":
         trainer.vllm_generation.llm.generate = ThinkingBudgetVLLMGenerate(
             trainer.vllm_generation.llm.generate,
             tokenizer,
@@ -77,7 +78,15 @@ def main_online_rl(cfg: DictConfig) -> None:
     gc.collect()
     torch.cuda.empty_cache()
 
-    evaluate(cfg)
+    if cfg.grpo_config.vllm_mode == "colocate":
+        OmegaConf.resolve(cfg)
+
+        ctx = mp.get_context('spawn')
+        p = ctx.Process(target=evaluate, args=(cfg,))
+        p.start()
+        p.join()
+    else:
+        evaluate(cfg)
 
 
 def thinking_budget_rollout_func(

@@ -153,6 +153,7 @@ def _build_offline_rl_dataset(
     y: np.ndarray,
     y_norm: np.ndarray,
     response_ratio: float,
+    candidate_strategy: str,
     num_candidates: int,
     num_permutations: int,
     num_shots: int,
@@ -168,26 +169,33 @@ def _build_offline_rl_dataset(
         x[response_size:], y[response_size:], y_norm[response_size:]
     )
 
-    if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
-        similarity = rbf_kernel(
-            task.to_logits(x_response).reshape(len(x_response), -1),
-            task.to_logits(x_prompt).reshape(len(x_prompt), -1)
-        )
-    elif task_name in {"AntMorphology-Exact-v0", "DKittyMorphology-Exact-v0"}:
-        similarity = rbf_kernel(x_response, x_prompt)
-    else:
-        raise ValueError(f"Invalid task: {task_name}")
+    if candidate_strategy == "similarity":
+        if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
+            similarity = rbf_kernel(
+                task.to_logits(x_response).reshape(len(x_response), -1),
+                task.to_logits(x_prompt).reshape(len(x_prompt), -1)
+            )
+        elif task_name in {"AntMorphology-Exact-v0", "DKittyMorphology-Exact-v0"}:
+            similarity = rbf_kernel(x_response, x_prompt)
+        else:
+            raise ValueError(f"Invalid task: {task_name}")
 
     examples = []
     prompt_fn = create_prompt_fn(task_name)
 
-    for x_resp, y_norm_resp, sim in tqdm(
-        zip(x_response, y_norm_response, similarity, strict=True),
+    for i, (x_resp, y_norm_resp) in tqdm(
+        enumerate(zip(x_response, y_norm_response, strict=True)),
         desc="Building offline RL dataset",
         total=len(x_response)
     ):
-        # Retrieve candidates with the highest kernel-based similarity
-        index = sim.argpartition(-num_candidates)[-num_candidates:]
+        if candidate_strategy == "similarity":
+            # Retrieve candidates with the highest kernel-based similarity
+            index = similarity[i].argpartition(-num_candidates)[-num_candidates:]
+        elif candidate_strategy == "random":
+            index = rng.choice(len(x_prompt), size=num_candidates, replace=False)
+        else:
+            raise ValueError(f"Invalid candidate strategy: {candidate_strategy}")
+
         x_cand, y_cand, y_norm_cand = (
             x_prompt[index], y_prompt[index], y_norm_prompt[index]
         )

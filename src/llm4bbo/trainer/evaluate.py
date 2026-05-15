@@ -2,6 +2,7 @@ import os
 os.environ["USE_TF"] = "0"
 
 import json
+import multiprocessing as mp
 from pathlib import Path
 
 import hydra
@@ -29,7 +30,7 @@ def main(cfg: DictConfig) -> None:
     evaluate(cfg)
 
 
-def evaluate(cfg: DictConfig) -> None:
+def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> None:
     task, x, y, oracle_scaler = sample_evenly_spaced_designs(
         cfg.task_name, cfg.num_designs
     )
@@ -79,10 +80,10 @@ def evaluate(cfg: DictConfig) -> None:
     output_dir = Path(cfg.output_dir)
 
     (output_dir / "evaluate.json").write_text(json.dumps(results, indent=2))
-    wandb.summary.update({f"evaluate/{k}": v for k, v in results.items()})
+    evaluate_results = {f"evaluate/{k}": v for k, v in results.items()}
 
     best_conversations = []
-    table = wandb.Table(columns=["trial", "system", "user", "assistant"])
+    table_data = []
 
     for trial_index, proposal_index in enumerate(y_pred.argmax(axis=-1)):
         chat_prompt = chat_prompts[proposal_index]
@@ -96,17 +97,33 @@ def evaluate(cfg: DictConfig) -> None:
                 "assistant": completion
             }
         )
-        table.add_data(
-            trial_index,
-            chat_prompt[0]["content"],
-            chat_prompt[1]["content"],
-            completion
+        table_data.append(
+            [
+                trial_index,
+                chat_prompt[0]["content"],
+                chat_prompt[1]["content"],
+                completion
+            ]
         )
 
     (output_dir / "best_conversations.json").write_text(
         json.dumps(best_conversations, indent=2)
     )
-    wandb.summary["evaluate/best_conversations"] = table
+
+    table_columns = ["trial", "system", "user", "assistant"]
+
+    if results_queue is not None:
+        results_queue.put(
+            {
+                "evaluate": evaluate_results,
+                "table": {"columns": table_columns, "data": table_data}
+            }
+        )
+    else:
+        wandb.summary.update(evaluate_results)
+        wandb.summary["evaluate/best_conversations"] = wandb.Table(
+            columns=table_columns, data=table_data
+        )
 
 
 if __name__ == "__main__":

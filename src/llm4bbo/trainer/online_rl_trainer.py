@@ -79,12 +79,18 @@ def main_online_rl(cfg: DictConfig) -> None:
     torch.cuda.empty_cache()
 
     if cfg.grpo_config.vllm_mode == "colocate":
-        OmegaConf.resolve(cfg)
+        ctx = mp.get_context(method="spawn")
 
-        ctx = mp.get_context('spawn')
-        p = ctx.Process(target=evaluate, args=(cfg,))
+        OmegaConf.resolve(cfg)
+        results_queue = ctx.Queue()
+
+        p = ctx.Process(target=evaluate, args=(cfg, results_queue))
         p.start()
+        results = results_queue.get()
         p.join()
+
+        wandb.summary.update(results["evaluate"])
+        wandb.summary["evaluate/best_conversations"] = wandb.Table(**results["table"])
     else:
         evaluate(cfg)
 

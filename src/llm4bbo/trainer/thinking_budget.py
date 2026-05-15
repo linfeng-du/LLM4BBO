@@ -80,7 +80,7 @@ class ThinkingBudgetVLLMGenerate:
 
         stage_1_output = self.generate(prompts, **stage_1_kwargs)
 
-        # Stage 2: Generate the final answer
+        # Stage 2: Generate the final answer (skip when stage 1 already hits EOS)
         stage_2_prompts = []
 
         for completion_index, (completion_ids, logprobs) in enumerate(
@@ -90,16 +90,18 @@ class ThinkingBudgetVLLMGenerate:
                 strict=True
             )
         ):
-            assert self.eos_token_id not in completion_ids
-
-            if self.eoth_token_id not in completion_ids:
+            if (
+                self.eoth_token_id not in completion_ids
+                and self.eos_token_id not in completion_ids
+            ):
                 # Stop the thinking by inserting `self.stop_thinking_ids`
                 completion_ids += self.stop_thinking_ids
                 logprobs += [[0.0]] * len(self.stop_thinking_ids)
 
-            prompt_index = completion_index // kwargs["n"]
-            prompt_ids = stage_1_output["prompt_ids"][prompt_index]
-            stage_2_prompts.append(prompt_ids + completion_ids)
+            if self.eos_token_id not in completion_ids:
+                prompt_index = completion_index // kwargs["n"]
+                prompt_ids = stage_1_output["prompt_ids"][prompt_index]
+                stage_2_prompts.append(prompt_ids + completion_ids)
 
         stage_2_kwargs = copy.deepcopy(kwargs)
         stage_2_kwargs["n"] = 1
@@ -109,28 +111,35 @@ class ThinkingBudgetVLLMGenerate:
         else:
             stage_2_kwargs["max_tokens"] = max_tokens - self.thinking_budget
 
-        stage_2_output = self.generate(stage_2_prompts, **stage_2_kwargs)
-
-        thinking_lengths = []
-        answer_lengths = []
+        if stage_2_prompts:
+            stage_2_output = self.generate(stage_2_prompts, **stage_2_kwargs)
+        else:
+            stage_2_output = {"completion_ids": [], "logprobs": []}
 
         # Combine the outputs from stage 1 and stage 2
-        for (
-            stage_1_completion_ids,
-            stage_1_logprobs,
-            stage_2_completion_ids,
-            stage_2_logprobs
-        ) in zip(
-            stage_1_output["completion_ids"],
-            stage_1_output["logprobs"],
-            stage_2_output["completion_ids"],
-            stage_2_output["logprobs"],
-            strict=True
+        thinking_lengths = []
+        answer_lengths = []
+        stage_2_iter = iter(
+            zip(
+                stage_2_output["completion_ids"],
+                stage_2_output["logprobs"],
+                strict=True
+            )
+        )
+
+        for completion_ids, logprobs in zip(
+            stage_1_output["completion_ids"], stage_1_output["logprobs"], strict=True
         ):
-            thinking_lengths.append(len(stage_1_completion_ids))
+            thinking_lengths.append(len(completion_ids))
+
+            if self.eos_token_id in completion_ids:
+                answer_lengths.append(0)
+                continue
+
+            stage_2_completion_ids, stage_2_logprobs = next(stage_2_iter)
             answer_lengths.append(len(stage_2_completion_ids))
-            stage_1_completion_ids += stage_2_completion_ids
-            stage_1_logprobs += stage_2_logprobs
+            completion_ids += stage_2_completion_ids
+            logprobs += stage_2_logprobs
 
         if return_length:
             return stage_1_output, thinking_lengths, answer_lengths
@@ -156,15 +165,15 @@ class ThinkingBudgetVLLMGenerate:
 
         stage_1_requests = self.generate(prompts, stage_1_params, **kwargs)
 
-        # Stage 2: Generate the final answer
-        stage_1_indices = []
+        # Stage 2: Generate the final answer (skip when stage 1 already hits EOS)
         stage_2_prompts = []
 
-        for request_index, request in enumerate(stage_1_requests):
-            for completion_index, completion in enumerate(request.outputs):
-                assert self.eos_token_id not in completion.token_ids
-
-                if self.eoth_token_id not in completion.token_ids:
+        for request in stage_1_requests:
+            for completion in request.outputs:
+                if (
+                    self.eoth_token_id not in completion.token_ids
+                    and self.eos_token_id not in completion.token_ids
+                ):
                     # Stop the thinking by inserting `self.stop_thinking_ids`
                     completion.text += STOP_THINKING_PROMPT
                     completion.token_ids += self.stop_thinking_ids
@@ -174,10 +183,9 @@ class ThinkingBudgetVLLMGenerate:
                             {s: Logprob(logprob=0.0)} for s in self.stop_thinking_ids
                         ]
 
-                prompt_ids = request.prompt_token_ids + completion.token_ids
-
-                stage_1_indices.append((request_index, completion_index))
-                stage_2_prompts.append({"prompt_token_ids": prompt_ids})
+                if self.eos_token_id not in completion.token_ids:
+                    prompt_ids = request.prompt_token_ids + completion.token_ids
+                    stage_2_prompts.append({"prompt_token_ids": prompt_ids})
 
         stage_2_params = sampling_params.clone()
         stage_2_params.n = 1
@@ -187,30 +195,38 @@ class ThinkingBudgetVLLMGenerate:
         else:
             stage_2_params.max_tokens = max_tokens - self.thinking_budget
 
-        stage_2_requests = self.generate(stage_2_prompts, stage_2_params, **kwargs)
-
-        thinking_lengths = []
-        answer_lengths = []
+        if stage_2_prompts:
+            stage_2_requests = self.generate(stage_2_prompts, stage_2_params, **kwargs)
+        else:
+            stage_2_requests = []
 
         # Combine the outputs from stage 1 and stage 2
-        for (request_index, completion_index), stage_2_request in zip(
-            stage_1_indices, stage_2_requests, strict=True
-        ):
-            request = stage_1_requests[request_index]
-            completion = request.outputs[completion_index]
-            stage_2_completion = stage_2_request.outputs[0]
+        thinking_lengths = []
+        answer_lengths = []
+        stage_2_iter = iter(stage_2_requests)
 
-            thinking_lengths.append(len(completion.token_ids))
-            answer_lengths.append(len(stage_2_completion.token_ids))
+        for request in stage_1_requests:
+            for completion in request.outputs:
+                thinking_lengths.append(len(completion.token_ids))
 
-            completion.text += stage_2_completion.text
-            completion.token_ids += stage_2_completion.token_ids
+                if self.eos_token_id in completion.token_ids:
+                    answer_lengths.append(0)
+                    continue
 
-            if sampling_params.logprobs is not None:
-                completion.cumulative_logprob += stage_2_completion.cumulative_logprob
-                completion.logprobs += stage_2_completion.logprobs
+                stage_2_request = next(stage_2_iter)
+                stage_2_completion = stage_2_request.outputs[0]
+                answer_lengths.append(len(stage_2_completion.token_ids))
 
-            completion.finish_reason = stage_2_completion.finish_reason
+                completion.text += stage_2_completion.text
+                completion.token_ids += stage_2_completion.token_ids
+
+                if sampling_params.logprobs is not None:
+                    completion.cumulative_logprob += (
+                        stage_2_completion.cumulative_logprob
+                    )
+                    completion.logprobs += stage_2_completion.logprobs
+
+                completion.finish_reason = stage_2_completion.finish_reason
 
         if return_length:
             return stage_1_requests, thinking_lengths, answer_lengths

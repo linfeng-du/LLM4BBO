@@ -114,6 +114,9 @@ def thinking_budget_rollout_func(
         generate = trainer.vllm_generation.llm.generate
 
     for ids, mask in zip(completion_ids, env_mask, strict=True):
+        if generate.eoth_token_id not in ids:
+            continue
+
         eoth_index = ids.index(generate.eoth_token_id)
         eoth_offset = generate.stop_thinking_ids.index(generate.eoth_token_id)
         mask_start = eoth_index - eoth_offset

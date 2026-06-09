@@ -16,7 +16,7 @@ dependencies = [
     "morphing-agents==1.5.1",
     "numpy==2.1.1",
     "omegaconf==2.3.0",
-    "scikit-learn==1.9.0",
+    "scikit-learn==1.8.0",
     "torch==2.10.0",
     "tqdm==4.68.2",
     "trl==1.5.1",

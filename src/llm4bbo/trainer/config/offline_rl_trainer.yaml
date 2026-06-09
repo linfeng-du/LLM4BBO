@@ -41,6 +41,6 @@ sft_config:
   # SFTConfig
   model_init_kwargs:
     dtype: bfloat16
-    attn_implementation: flash_attention_2
+    attn_implementation: flash_attention_3
   max_length: null
   

@@ -38,7 +38,7 @@ grpo_config:
   # GRPOConfig
   model_init_kwargs:
     dtype: bfloat16
-    attn_implementation: flash_attention_2
+    attn_implementation: flash_attention_3
   cast_lm_head_to_fp32: true
   num_generations: 8
   num_generations_eval: 4

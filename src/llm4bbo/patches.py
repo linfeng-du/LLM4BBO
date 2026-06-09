@@ -34,50 +34,48 @@ def _patch_numpy() -> None:
 
 def _patch_deepchem() -> None:
     with _silence_stdout_stderr():
-        import deepchem as dc
-
-    if Version(dc.__version__) == Version("2.5.0"):
         from deepchem.feat.smiles_tokenizer import (
             BasicSmilesTokenizer,
             SmilesTokenizer,
             load_vocab
         )
 
-        # https://github.com/deepchem/deepchem/blob/2.8.0/deepchem/feat/smiles_tokenizer.py#L68
-        def __init__(
-            self,
-            vocab_file: str = '',
-            # unk_token="[UNK]",
-            # sep_token="[SEP]",
-            # pad_token="[PAD]",
-            # cls_token="[CLS]",
-            # mask_token="[MASK]",
-            **kwargs):
-            """Constructs a SmilesTokenizer.
+    # https://github.com/deepchem/deepchem/blob/2.8.0/deepchem/feat/smiles_tokenizer.py#L68
+    def __init__(
+        self,
+        vocab_file: str = '',
+        # unk_token="[UNK]",
+        # sep_token="[SEP]",
+        # pad_token="[PAD]",
+        # cls_token="[CLS]",
+        # mask_token="[MASK]",
+        **kwargs):
+        """Constructs a SmilesTokenizer.
 
-            Parameters
-            ----------
-            vocab_file: str
-                Path to a SMILES character per line vocabulary file.
-                Default vocab file is found in deepchem/feat/tests/data/vocab.txt
-            """
+        Parameters
+        ----------
+        vocab_file: str
+            Path to a SMILES character per line vocabulary file.
+            Default vocab file is found in deepchem/feat/tests/data/vocab.txt
+        """
 
-            super(SmilesTokenizer, self).__init__(vocab_file, **kwargs)
+        super(SmilesTokenizer, self).__init__(vocab_file, **kwargs)
 
-            if not os.path.isfile(vocab_file):
-                raise ValueError(
-                    "Can't find a vocab file at path '{}'.".format(vocab_file))
-            self.vocab = load_vocab(vocab_file)
-            self.highest_unused_index = max([
-                i for i, v in enumerate(self.vocab.keys())
-                if v.startswith("[unused")
-            ])
-            self.ids_to_tokens = collections.OrderedDict([
-                (ids, tok) for tok, ids in self.vocab.items()
-            ])
-            self.basic_tokenizer = BasicSmilesTokenizer()
+        if not os.path.isfile(vocab_file):
+            raise ValueError(
+                "Can't find a vocab file at path '{}'.".format(vocab_file))
+        self._smiles_vocab = load_vocab(vocab_file)
+        self.highest_unused_index = max([
+            i for i, v in enumerate(self._smiles_vocab.keys())
+            if v.startswith("[unused")
+        ])
+        self.ids_to_tokens = collections.OrderedDict([
+            (ids, tok) for tok, ids in self._smiles_vocab.items()
+        ])
+        self.basic_tokenizer = BasicSmilesTokenizer()
 
-        SmilesTokenizer.__init__ = __init__
+    SmilesTokenizer.vocab = property(lambda self: self._smiles_vocab)
+    SmilesTokenizer.__init__ = __init__
 
 
 @contextmanager

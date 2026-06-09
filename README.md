@@ -27,6 +27,7 @@ virtualenv --no-download llm4bbo
 source llm4bbo/bin/activate
 python -m pip install 'pip<24.1'
 pip install -e .
+pip install transformers==5.10.2 --no-deps
 ```
 
 `mujoco_py` performs runtime compilation during its first import.

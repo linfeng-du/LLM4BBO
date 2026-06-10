@@ -29,6 +29,7 @@ python -m pip install 'pip<24.1'
 pip install -e .
 pip install flash_attn_3 --find-links https://windreamer.github.io/flash-attention3-wheels/cu129_torch2100
 pip install transformers==5.10.2 --no-deps
+pip install huggingface_hub-1.18.0
 ```
 
 `mujoco_py` performs runtime compilation during its first import.

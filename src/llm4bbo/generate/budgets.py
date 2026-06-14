@@ -43,6 +43,9 @@ class GenerateWithBudgets:
         self.stop_thinking_ids = self.tokenizer.encode(
             STOP_THINKING_PROMPT, add_special_tokens=False
         )
+        self.stop_thinking_tokens = [
+            self.tokenizer.decode(i) for i in self.stop_thinking_ids
+        ]
         assert self.thinking_budget > len(self.stop_thinking_ids)
 
     def __call__(self, *args: Any, **kwargs: Any) -> ColocateOutput | ServerOutput:
@@ -59,7 +62,6 @@ class GenerateWithBudgets:
     def _colocate_call(self,
         prompts: list[dict[str, list[int]]],
         sampling_params: SamplingParams,
-        return_lengths: bool = False,
         **kwargs: Any
     ) -> ColocateOutput:
         assert not sampling_params.stop
@@ -90,7 +92,12 @@ class GenerateWithBudgets:
 
                     if completion.logprobs is not None:
                         completion.logprobs += [
-                            {i: Logprob(0.0)} for i in self.stop_thinking_ids
+                            {i: Logprob(logprob=0.0, decoded_token=t)}
+                            for i, t in zip(
+                                self.stop_thinking_ids,
+                                self.stop_thinking_tokens,
+                                strict=True,
+                            )
                         ]
 
                 prompt_ids = request.prompt_token_ids + completion.token_ids
@@ -108,21 +115,14 @@ class GenerateWithBudgets:
             )
 
         # Append the outputs from stage 2 to stage 1
-        thinking_lengths = []
-        answer_lengths = []
         stage_2_iter = iter(stage_2_requests)
 
         for request in stage_1_requests:
             for completion in request.outputs:
-                thinking_lengths.append(len(completion.token_ids))
-
                 if self.eos_token_id in completion.token_ids:
-                    answer_lengths.append(0)
                     continue
 
-                stage_2_request = next(stage_2_iter)
-                stage_2_completion = stage_2_request.outputs[0]
-                answer_lengths.append(len(stage_2_completion.token_ids))
+                stage_2_completion = next(stage_2_iter).outputs[0]
 
                 completion.text += stage_2_completion.text
                 completion.token_ids += stage_2_completion.token_ids
@@ -138,21 +138,19 @@ class GenerateWithBudgets:
                 completion.finish_reason = stage_2_completion.finish_reason
                 completion.stop_reason = stage_2_completion.stop_reason
 
-        if return_lengths:
-            return stage_1_requests, thinking_lengths, answer_lengths
-
         return stage_1_requests
 
     def _server_call(
         self,
         prompts: list[list[int]],
-        return_lengths: bool = False,
         **kwargs: Any
     ) -> ServerOutput:
+        kwargs["generation_kwargs"] = kwargs.get("generation_kwargs") or {}
+
+        assert kwargs["max_tokens"] >= self.thinking_budget + self.answer_budget
         assert "stop" not in kwargs["generation_kwargs"]
         assert "stop_token_ids" not in kwargs["generation_kwargs"]
         assert "max_tokens" not in kwargs["generation_kwargs"]
-        assert kwargs["max_tokens"] >= self.thinking_budget + self.answer_budget
 
         # Stage 1: Generate thinking up to `self.thinking_budget` tokens
         stage_1_kwargs = copy.deepcopy(kwargs)
@@ -164,68 +162,66 @@ class GenerateWithBudgets:
         stage_1_output = self.generate_func(prompts, **stage_1_kwargs)
 
         # Stage 2: Generate after thinking (skip when stage 1 already hits EOS)
-        # TODO: Start from here.
         stage_2_prompts = []
 
-        for completion_index, (completion_ids, logprobs) in enumerate(
+        for (
+            completion_index, (completion_ids, logprobs, logprob_token_ids)
+        ) in enumerate(
             zip(
                 stage_1_output["completion_ids"],
                 stage_1_output["logprobs"],
+                stage_1_output["logprob_token_ids"],
                 strict=True
             )
         ):
-            if (
-                self.eoth_token_id not in completion_ids
-                and self.eos_token_id not in completion_ids
-            ):
-                # Stop the thinking by inserting `self.stop_thinking_ids`
+            if self.eos_token_id in completion_ids:
+                # Model outputs EOS before </think>
+                continue
+
+            if self.eoth_token_id not in completion_ids:
+                # Forcibly stop thinking
                 completion_ids += self.stop_thinking_ids
                 logprobs += [[0.0]] * len(self.stop_thinking_ids)
+                logprob_token_ids += [[i] for i in self.stop_thinking_ids]
 
-            if self.eos_token_id not in completion_ids:
-                prompt_index = completion_index // kwargs["n"]
-                prompt_ids = stage_1_output["prompt_ids"][prompt_index]
-                stage_2_prompts.append(prompt_ids + completion_ids)
+            prompt_index = completion_index // kwargs["n"]
+            prompt_ids = stage_1_output["prompt_ids"][prompt_index]
+            stage_2_prompts.append(prompt_ids + completion_ids)
 
         stage_2_kwargs = copy.deepcopy(kwargs)
         stage_2_kwargs["n"] = 1
+        stage_2_kwargs["max_tokens"] = self.answer_budget
 
-        if self.answer_budget is not None:
-            stage_2_kwargs["max_tokens"] = self.answer_budget
-        else:
-            stage_2_kwargs["max_tokens"] = max_tokens - self.thinking_budget
+        stage_2_output = {"completion_ids": [], "logprobs": [], "logprob_token_ids": []}
 
         if stage_2_prompts:
-            stage_2_output = self.generate(stage_2_prompts, **stage_2_kwargs)
-        else:
-            stage_2_output = {"completion_ids": [], "logprobs": []}
+            stage_2_output = self.generate_func(stage_2_prompts, **stage_2_kwargs)
 
-        # Combine the outputs from stage 1 and stage 2
-        thinking_lengths = []
-        answer_lengths = []
+        # Append the outputs from stage 2 to stage 1
         stage_2_iter = iter(
             zip(
                 stage_2_output["completion_ids"],
                 stage_2_output["logprobs"],
+                stage_2_output["logprob_token_ids"],
                 strict=True
             )
         )
 
-        for completion_ids, logprobs in zip(
-            stage_1_output["completion_ids"], stage_1_output["logprobs"], strict=True
+        for completion_ids, logprobs, logprob_token_ids in zip(
+            stage_1_output["completion_ids"],
+            stage_1_output["logprobs"],
+            stage_1_output["logprob_token_ids"],
+            strict=True
         ):
-            thinking_lengths.append(len(completion_ids))
-
             if self.eos_token_id in completion_ids:
-                answer_lengths.append(0)
                 continue
 
-            stage_2_completion_ids, stage_2_logprobs = next(stage_2_iter)
-            answer_lengths.append(len(stage_2_completion_ids))
+            stage_2_completion_ids, stage_2_logprobs, stage_2_logprob_token_ids = (
+                next(stage_2_iter)
+            )
+
             completion_ids += stage_2_completion_ids
             logprobs += stage_2_logprobs
-
-        if return_length:
-            return stage_1_output, thinking_lengths, answer_lengths
+            logprob_token_ids += stage_2_logprob_token_ids
 
         return stage_1_output

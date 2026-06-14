@@ -1,6 +1,6 @@
 __pycache__/
 *.egg-info/
 
-data/
+assets/
 outputs/
 paper/

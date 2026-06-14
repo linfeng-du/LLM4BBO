@@ -9,12 +9,14 @@ from contextlib import contextmanager
 from packaging.version import Version
 
 
-def _silence_robel_mujoco_gym_logs() -> None:
-    logging.getLogger().addFilter(RobelMuJoCoLogFilter())
+def _silence_excessive_logs() -> None:
+    logging.getLogger().addFilter(_RobelMujocoFilter())
     warnings.filterwarnings("ignore", module=r"gym")
+    warnings.filterwarnings("ignore", message=r"pkg_resources is deprecated")
+    warnings.filterwarnings("ignore", message=r"TRL currently supports vLLM versions")
 
 
-class RobelMuJoCoLogFilter(logging.Filter):
+class _RobelMujocoFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return not record.getMessage().startswith(("[-0.  1.]", "MuJoCo"))
 
@@ -74,8 +76,8 @@ def _patch_deepchem() -> None:
         ])
         self.basic_tokenizer = BasicSmilesTokenizer()
 
-    SmilesTokenizer.vocab = property(lambda self: self._smiles_vocab)
     SmilesTokenizer.__init__ = __init__
+    SmilesTokenizer.vocab = property(lambda self: self._smiles_vocab)
 
 
 @contextmanager
@@ -98,7 +100,7 @@ def _silence_stdout_stderr() -> Generator[None, None, None]:
         os.close(stderr_fd)
 
 
-_silence_robel_mujoco_gym_logs()
+_silence_excessive_logs()
 _patch_collections()
 _patch_numpy()
 _patch_deepchem()

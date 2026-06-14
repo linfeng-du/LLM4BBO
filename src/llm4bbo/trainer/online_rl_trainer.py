@@ -3,25 +3,20 @@ os.environ["USE_TF"] = "0"
 
 import gc
 import multiprocessing as mp
-from collections.abc import Callable
-from importlib import resources
-from typing import Any
+
+import llm4bbo.patches
 
 import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
 
-import llm4bbo.patches, design_bench
-
-import gpytorch
 import torch
-
 from transformers import AutoTokenizer
 from transformers.pipelines.text_generation import ChatType
 from trl import GRPOConfig, GRPOTrainer
 
-from llm4bbo.dataset import build_dataset, create_parse_fn
-from llm4bbo.reward.gaussian_process_improved import ImprovedExactGPModel
+from llm4bbo.dataset import build_dataset
+from llm4bbo.gaussian_process import create_gaussian_process_reward
 from llm4bbo.trainer.evaluate import evaluate
 from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
 from llm4bbo.trainer.utils import get_best_model, update_config
@@ -131,57 +126,6 @@ def thinking_budget_rollout_func(
         "logprobs": logprobs,
         "env_mask": env_mask
     }
-
-
-def create_gaussian_process_reward(
-    task_name: str
-) -> Callable[[list[ChatType], list[float]], list[float]]:
-    task = design_bench.make(task_name)
-    parse_fn = create_parse_fn(task_name)
-
-    checkpoint_path = (
-        resources.files("llm4bbo") / "data" / "gp_models" / f"gp_model_{task_name}_0.pt"
-    )
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-
-    likelihood = gpytorch.likelihoods.GaussianLikelihood().to(device)
-    model = (
-        ImprovedExactGPModel(
-            checkpoint["train_x"].to(device),
-            checkpoint["train_y"].to(device),
-            likelihood,
-            checkpoint["rbf_only"]
-        )
-        .to(device)
-    )
-    model.load_state_dict(checkpoint["model_state_dict"])
-    likelihood.load_state_dict(checkpoint["likelihood_state_dict"])
-
-    model.eval()
-    likelihood.eval()
-
-    def gaussian_process_reward(
-        completions: list[ChatType],
-        best_reference_score: list[float],
-        **kwargs: Any
-    ) -> list[float]:
-        x_pred = parse_fn([c[0]["content"] for c in completions])
-
-        if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
-            x_pred = task.to_logits(x_pred).reshape(len(x_pred), -1)
-
-        device = model.train_inputs[0].device
-        x_pred = torch.from_numpy(x_pred).to(device, torch.float32)
-        best_reference_score = torch.tensor(best_reference_score, device=device)
-
-        with torch.no_grad(), gpytorch.settings.fast_pred_var():
-            distribution = likelihood(model(x_pred))
-            y_pred = distribution.mean.squeeze(dim=-1)
-
-        return (y_pred - best_reference_score).tolist()
-
-    return gaussian_process_reward
 
 
 if __name__ == "__main__":

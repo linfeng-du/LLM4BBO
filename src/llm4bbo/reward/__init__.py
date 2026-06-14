@@ -1,1 +1,0 @@
-from .gaussian_process_improved import ImprovedExactGPModel

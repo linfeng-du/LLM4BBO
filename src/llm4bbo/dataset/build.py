@@ -3,7 +3,8 @@ from typing import Any
 
 from tqdm import tqdm
 
-import llm4bbo.patches, design_bench
+import llm4bbo.patches
+import design_bench
 from design_bench.task import Task
 
 from datasets import Dataset, DatasetDict
@@ -13,7 +14,7 @@ from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from .prompt import create_prompt_fn
+from .llm_io import create_prompt_fn
 
 
 def build_dataset(
@@ -38,21 +39,16 @@ def build_dataset(
     rng = np.random.default_rng(seed)
 
     if stage == "sft":
-        train_dataset = _build_offline_rl_dataset(
+        off_train_dataset = _build_offline_rl_dataset(
             task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
         )
-        val_dataset = _build_offline_rl_dataset(
+        off_val_dataset = _build_offline_rl_dataset(
             task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
         )
 
-        train_dataset = (
-            train_dataset.filter(lambda example: example["reward"] > 0)
-            .remove_columns("reward")
-        )
-        val_dataset = (
-            val_dataset.filter(lambda example: example["reward"] > 0)
-            .remove_columns("reward")
-        )
+        filter_fn = lambda example: example["reward"] > 0
+        train_dataset = off_train_dataset.filter(filter_fn).remove_columns("reward")
+        val_dataset = off_val_dataset.filter(filter_fn).remove_columns("reward")
 
     elif stage == "offline_rl":
         scale_reward = kwargs.pop("scale_reward")
@@ -65,16 +61,13 @@ def build_dataset(
         )
 
         if scale_reward:
-            # Scale rewards by inverse of the global std
+            # Divide rewards by std
             r_train_std = np.std(train_dataset["reward"]).item()
             assert r_train_std > 0
 
-            train_dataset = train_dataset.map(
-                lambda example: {"reward": example["reward"] / r_train_std}
-            )
-            val_dataset = val_dataset.map(
-                lambda example: {"reward": example["reward"] / r_train_std}
-            )
+            map_fn = lambda example: {"reward": example["reward"] / r_train_std}
+            train_dataset = train_dataset.map(map_fn)
+            val_dataset = val_dataset.map(map_fn)
 
     elif stage == "online_rl":
         train_dataset = _build_online_rl_dataset(
@@ -90,53 +83,48 @@ def build_dataset(
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
-def sample_evenly_spaced_designs(
-    task_name: str,
-    num_designs: int
-) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    task, x, y, oracle_scaler = _load_relabeled_dataset(task_name)
+def sample_evenly_spaced_designs(task_name: str, num_designs: int) -> (
+    tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]
+):
+    task, x, y, oracle_scaler = _load_dataset(task_name)
 
-    sorted_index = y.squeeze(axis=-1).argsort()
-    spaced_index = (
-        np.linspace(0, len(sorted_index) - 1, num_designs).round().astype(int)
-    )
+    sorted_index = y.squeeze(-1).argsort()
+    spaced_index = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
     index = sorted_index[spaced_index]
 
     return task, x[index], y[index], oracle_scaler
 
 
-def _load_relabeled_dataset(
-    task_name: str
-) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    relabeled_dir = resources.files("llm4bbo") / "data" / "relabeled_datasets"
+def _load_dataset(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
+    dataset_dir = resources.files("llm4bbo") / "assets" / "datasets"
     task = design_bench.make(task_name)
 
-    # Used to normalize oracle predictions
+    # Fitted on the full dataset; use it to normalize `task.predict` outputs
     oracle_scaler = MinMaxScaler()
 
     if task_name == "TFBind10-Exact-v0":
-        x = np.load(relabeled_dir / "tf10_x_correct.npy")
-        y = np.load(relabeled_dir / "tf10_y_correct.npy")
+        x = np.load(dataset_dir / f"{task_name}_x.npy")
+        y = np.load(dataset_dir / f"{task_name}_y.npy")
         oracle_scaler.fit(y)
 
-        # Keep the half of examples with the smallest y
+        # Keep half of the designs with the smallest y
         half_size = len(y) // 2
-        index = y.squeeze(axis=-1).argpartition(half_size)[:half_size]
+        index = y.squeeze(-1).argpartition(half_size)[:half_size]
         x, y = x[index], y[index]
 
         # Patch `task.predict` to use relabeled y
-        text = (relabeled_dir / "parsed_tf10.txt").read_text()
-        table = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
+        text = (dataset_dir / f"{task_name}_oracle.txt").read_text()
+        oracle = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
 
-        def tfbind10_predict(x: np.ndarray) -> np.ndarray:
+        def predict(x: np.ndarray) -> np.ndarray:
             x_char = np.array(["A", "C", "G", "T"])[x]
-            return np.array([[table["".join(x)]] for x in x_char])
+            return np.array([[oracle["".join(xc)]] for xc in x_char])
 
-        task.predict = tfbind10_predict
+        task.predict = predict
 
     else:
         x = task.x
-        y = np.load(relabeled_dir / f"{task_name}_relabeled_y.npy")
+        y = np.load(dataset_dir / f"{task_name}_y.npy")
 
         # Create a temporary task object to avoid mutating `task`
         tmp_task = design_bench.make(task_name)
@@ -160,8 +148,9 @@ def _build_offline_rl_dataset(
     rng: np.random.Generator
 ) -> Dataset:
     # Partition the dataset into disjoint response and prompt subsets
-    index = rng.permutation(len(x))
-    x, y, y_norm = x[index], y[index], y_norm[index]
+    perm_index = rng.permutation(len(x))
+    x, y, y_norm = x[perm_index], y[perm_index], y_norm[perm_index]
+
     response_size = int(len(x) * response_ratio)
 
     x_response, y_norm_response = x[:response_size], y_norm[:response_size]
@@ -188,40 +177,43 @@ def _build_offline_rl_dataset(
         desc="Building offline RL dataset",
         total=len(x_response)
     ):
-        if candidate_strategy == "similarity":
+        if candidate_strategy == "random":
+            cand_index = rng.choice(len(x_prompt), num_candidates, replace=False)
+        elif candidate_strategy == "similarity":
             # Retrieve candidates with the highest kernel-based similarity
-            index = similarity[i].argpartition(-num_candidates)[-num_candidates:]
-        elif candidate_strategy == "random":
-            index = rng.choice(len(x_prompt), size=num_candidates, replace=False)
+            cand_index = similarity[i].argpartition(-num_candidates)[-num_candidates:]
         else:
             raise ValueError(f"Invalid candidate strategy: {candidate_strategy}")
 
         x_cand, y_cand, y_norm_cand = (
-            x_prompt[index], y_prompt[index], y_norm_prompt[index]
+            x_prompt[cand_index], y_prompt[cand_index], y_norm_prompt[cand_index]
         )
 
         worse_index = np.where(y_norm_resp > y_norm_cand)[0]
 
         if len(worse_index) >= num_shots:
             # Positive reward: sample from candidates worse than the response
-            index = rng.choice(worse_index, size=num_shots, replace=False)
+            ref_index = rng.choice(worse_index, num_shots, replace=False)
         else:
             # Negative reward: sample from all candidates
-            index = rng.permutation(num_candidates)[:num_shots]
+            ref_index = rng.permutation(num_candidates)[:num_shots]
 
-        x_ref, y_ref, y_norm_ref = x_cand[index], y_cand[index], y_norm_cand[index]
+        x_ref, y_ref, y_norm_ref = (
+            x_cand[ref_index], y_cand[ref_index], y_norm_cand[ref_index]
+        )
         reward = (y_norm_resp - y_norm_ref.max()).item()
 
         # Include different permutations of the references
         for _ in range(num_permutations):
-            index = rng.permutation(len(x_ref))
-            prompt, completion = prompt_fn(x_ref[index], y_ref[index], x_resp)
+            perm_index = rng.permutation(len(x_ref))
+            prompt, completion = prompt_fn(x_ref[perm_index], y_ref[perm_index], x_resp)
+
             examples.append(
                 {
                     "prompt": prompt,
                     "completion": completion,
-                    "chat_template_kwargs": {"enable_thinking": False},
-                    "reward": reward
+                    "reward": reward,
+                    "chat_template_kwargs": {"enable_thinking": False}
                 }
             )
 
@@ -240,13 +232,11 @@ def _build_online_rl_dataset(
     prompt_fn = create_prompt_fn(task_name)
 
     for _ in tqdm(range(dataset_size), desc="Building online RL dataset"):
-        index = rng.choice(len(x), size=num_shots, replace=False)
+        index = rng.choice(len(x), num_shots, replace=False)
         x_ref, y_ref = x[index], y[index]
-        examples.append(
-            {
-                "prompt": prompt_fn(x_ref, y_ref),
-                "best_reference_score": y_ref.max().item()
-            }
-        )
+
+        prompt = prompt_fn(x_ref, y_ref)
+        best_f = y_ref.max().item()
+        examples.append({"prompt": prompt, "best_f": best_f})
 
     return Dataset.from_list(examples)

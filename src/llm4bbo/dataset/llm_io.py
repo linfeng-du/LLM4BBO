@@ -50,9 +50,22 @@ Your task is to generate a new length-{length} DNA sequence, \
 composed of A, C, G, and T, \
 that maximizes the binding score for the transcription factor {factor}.
 
-Think step-by-step but concisely. \
-After thinking, immediately give your final answer without any other text. \
-Wrap your final answer in <design>...</design>.\
+Before giving your final answer, \
+you may propose 0 to 3 intermediate designs. \
+When you need to verify the score of a design, \
+end your thinking with </think> and call the `predict_score` tool \
+with the design wrapped within <design></design> XML tags; \
+the tool returns its predicted score and uncertainty, \
+then you continue reasoning. \
+When you want to give your final answer, \
+end your thinking with </think> and answer with the design \
+wrapped within <design></design> XML tags. \
+Think step-by-step but very concisely within 500 tokens, \
+and do not repeat information already provided to you.
+
+When giving your final answer, \
+you must answer with the design wrapped within <design></design> XML tags and nothing else. \
+Your answer must be in the same format as the examples.\
 """
 
 

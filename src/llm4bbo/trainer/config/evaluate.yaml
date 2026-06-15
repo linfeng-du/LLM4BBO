@@ -9,6 +9,7 @@ hydra:
 task: tf8
 stage: base
 num_designs: 500
+enable_tools: true
 output_dir: outputs/${wandb_init.name}
 
 wandb_init:

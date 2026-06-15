@@ -19,7 +19,7 @@ from gpytorch.likelihoods import GaussianLikelihood
 from llm4bbo.dataset import create_parse_fn
 
 
-def create_tool(task_name: str) -> Callable[[str], tuple[float, float]]:
+def create_tool(task_name: str) -> Callable[[str], dict[str, str]]:
     surrogate = GPRSurrogate(task_name)
     parse_fn = create_parse_fn(task_name)
 
@@ -33,6 +33,7 @@ def create_tool(task_name: str) -> Callable[[str], tuple[float, float]]:
         Returns:
             The predicted score and uncertainty.
         """
+        print(x)
         x = parse_fn([x])
 
         with torch.no_grad():

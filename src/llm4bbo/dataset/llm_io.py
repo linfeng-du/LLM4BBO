@@ -6,13 +6,39 @@ from functools import partial
 import numpy as np
 from transformers.pipelines.text_generation import ChatType
 
+from . import prompt
 
-def create_prompt_fn(
-    task_name: str
-) -> Callable[
-    [np.ndarray, np.ndarray, np.ndarray | None], ChatType | tuple[ChatType, ChatType]
-]:
-    system_prompt, user_prompt, stringify_fn = PROMPT_FN_REGISTRY[task_name]
+
+def create_prompt_fn(task_name: str, enable_tools: bool) -> (
+    Callable[
+        [np.ndarray, np.ndarray, np.ndarray | None],
+        ChatType | tuple[ChatType, ChatType]
+    ]
+):
+    match task_name:
+        case "TFBind8-Exact-v0":
+            system_prompt = prompt.TFBIND_TASK.format(length=8, factor="SIX6_REF_R1")
+            user_prompt = prompt.TFBIND_REFERENCES
+            stringify_fn = _tfbind_stringify_fn
+        case "TFBind10-Exact-v0":
+            system_prompt = prompt.TFBIND_TASK.format(length=10, factor="Pho4")
+            user_prompt = prompt.TFBIND_REFERENCES
+            stringify_fn = _tfbind_stringify_fn
+        case "AntMorphology-Exact-v0":
+            system_prompt = prompt.ANT_MORPHOLOGY_TASK
+            user_prompt = prompt.MORPHOLOGY_REFERENCES
+            stringify_fn = _morphology_stringify_fn
+        case "DKittyMorphology-Exact-v0":
+            system_prompt = prompt.DKITTY_MORPHOLOGY_TASK
+            user_prompt = prompt.MORPHOLOGY_REFERENCES
+            stringify_fn = _morphology_stringify_fn
+        case _:
+            raise ValueError(f"Invalid task: {task_name}")
+
+    if enable_tools:
+        system_prompt += f"\n\n{prompt.TOOL_USE}"
+
+    system_prompt += f"\n\n{prompt.FINAL_ANSWER}"
 
     def prompt_fn(
         x_reference: np.ndarray,
@@ -36,48 +62,6 @@ def create_prompt_fn(
     return prompt_fn
 
 
-def create_parse_fn(task_name: str) -> Callable[[list[str]], np.ndarray]:
-    return PARSE_FN_REGISTRY[task_name]
-
-
-DESIGN_PATTERN = re.compile(r"<design>(.*?)</design>", re.DOTALL)
-
-
-# TFBind8-Exact-v0 and TFBind10-Exact-v0
-TFBIND_SYSTEM_PROMPT = """\
-You are an expert in DNA sequence design. \
-Your task is to generate a new length-{length} DNA sequence, \
-composed of A, C, G, and T, \
-that maximizes the binding score for the transcription factor {factor}.
-
-Before giving your final answer, \
-you may propose 0 to 3 intermediate designs. \
-When you need to verify the score of a design, \
-end your thinking with </think> and call the `predict_score` tool \
-with the design wrapped within <design></design> XML tags; \
-the tool returns its predicted score and uncertainty, \
-then you continue reasoning. \
-When you want to give your final answer, \
-end your thinking with </think> and answer with the design \
-wrapped within <design></design> XML tags. \
-Think step-by-step but very concisely within 500 tokens, \
-and do not repeat information already provided to you.
-
-When giving your final answer, \
-you must answer with the design wrapped within <design></design> XML tags and nothing else. \
-Your answer must be in the same format as the examples.\
-"""
-
-
-TFBIND_USER_PROMPT = """\
-You are provided with example DNA sequences and their binding scores:
-
-{references}
-
-Design a new DNA sequence with a higher binding score than all given examples.\
-"""
-
-
 BASES = ["A", "C", "G", "T"]
 
 
@@ -88,6 +72,32 @@ def _tfbind_stringify_fn(x: np.ndarray, y: np.ndarray | None = None) -> str:
         return x_str
 
     return f"DNA: {x_str}, Binding Score: {y.item()}"
+
+
+def _morphology_stringify_fn(x: np.ndarray, y: np.ndarray | None = None) -> str:
+    x_str = f"<design>{[round(p.item(), ndigits=3) for p in x]}</design>"
+
+    if y is None:
+        return x_str
+
+    return f"Robot Morphology: {x_str}, Performance Score: {y.item()}"
+
+
+def create_parse_fn(task_name: str) -> Callable[[list[str]], np.ndarray]:
+    match task_name:
+        case "TFBind8-Exact-v0":
+            return partial(_tfbind_parse_fn, sequence_length=8)
+        case "TFBind10-Exact-v0":
+            return partial(_tfbind_parse_fn, sequence_length=10)
+        case "AntMorphology-Exact-v0":
+            return partial(_morphology_parse_fn, num_parameters=60)
+        case "DKittyMorphology-Exact-v0":
+            return partial(_morphology_parse_fn, num_parameters=56)
+        case _:
+            raise ValueError(f"Invalid task: {task_name}")
+
+
+DESIGN_PATTERN = re.compile(r"<design>(.*?)</design>", re.DOTALL)
 
 
 def _tfbind_parse_fn(completions: list[str], sequence_length: int) -> np.ndarray:
@@ -119,74 +129,6 @@ def _tfbind_parse_fn(completions: list[str], sequence_length: int) -> np.ndarray
     return np.array([parse_completion(c) for c in completions])
 
 
-# AntMorphology-Exact-v0
-# https://github.com/brandontrabucco/morphing-agents/tree/master/morphing_agents/mujoco/ant
-ANT_MORPHOLOGY_SYSTEM_PROMPT = """\
-You are an expert in quadruped robot morphology design. \
-Your task is to generate a new morphology for the Ant quadruped robot \
-that maximizes its running speed. \
-The morphology is represented by 60 continuous parameters, \
-grouped into 4 legs with 15 parameters per leg. \
-Each leg is a 3-link kinematic chain with hip, thigh, and ankle joints. \
-All parameters must be rounded to 3 decimal places.
-
-Parameter schema (repeats for each leg):
-p0, p1, p2: 3D location on the torso where the leg is mounted.
-p3, p4, p5: Fixed orientation of the leg relative to the torso.
-p6, p7: Midpoint and half-range of the hip joint's motion range.
-p8, p9: Midpoint and half-range of the thigh joint's motion range.
-p10, p11: Midpoint and half-range of the ankle joint's motion range.
-p12, p13, p14: Lengths of the hip, thigh, and ankle links.
-
-Think step-by-step but concisely. \
-After thinking, immediately give your final answer without any other text. \
-Wrap your final answer in <design>...</design>.\
-"""
-
-
-# DKittyMorphology-Exact-v0
-# https://github.com/brandontrabucco/morphing-agents/tree/master/morphing_agents/mujoco/dkitty
-DKITTY_MORPHOLOGY_SYSTEM_PROMPT = """\
-You are an expert in quadruped robot morphology design. \
-Your task is to generate a new morphology for the D'Kitty quadruped robot \
-that maximizes its ability to navigate to a fixed location. \
-The morphology is represented by 56 continuous parameters, \
-grouped into 4 legs with 14 parameters per leg. \
-Each leg is a 3-link kinematic chain with hip, thigh, and ankle joints. \
-All parameters must be rounded to 3 decimal places.
-
-Parameter schema (repeats for each leg):
-p0, p1, p2: 3D location on the torso where the leg is mounted.
-p3, p4, p5: Fixed orientation of the leg relative to the torso.
-p6, p7: Midpoint and half-range of the hip joint's motion range.
-p8, p9: Midpoint and half-range of the thigh joint's motion range.
-p10, p11: Midpoint and half-range of the ankle joint's motion range.
-p12, p13: Lengths of the thigh and ankle links.
-
-Think step-by-step but concisely. \
-After thinking, immediately give your final answer without any other text. \
-Wrap your final answer in <design>...</design>.\
-"""
-
-
-MORPHOLOGY_USER_PROMPT = """\
-You are provided with example robot morphologies and their performance scores:
-
-{references}
-
-Design a new robot morphology with a higher performance score than all given examples.\
-"""
-
-
-def _morphology_stringify_fn(x: np.ndarray, y: np.ndarray | None = None) -> str:
-    x_str = f"<design>{[round(p.item(), ndigits=3) for p in x]}</design>"
-
-    if y is None:
-        return x_str
-
-    return f"Robot Morphology: {x_str}, Performance Score: {y.item()}"
-
-
 def _morphology_parse_fn(completions: list[str], num_parameters: int) -> np.ndarray:
     def parse_completion(completion: str) -> list[float]:
         matches = DESIGN_PATTERN.findall(completion)
@@ -210,35 +152,3 @@ def _morphology_parse_fn(completions: list[str], num_parameters: int) -> np.ndar
         return parameters
 
     return np.array([parse_completion(c) for c in completions])
-
-
-PROMPT_FN_REGISTRY = {
-    "TFBind8-Exact-v0": (
-        TFBIND_SYSTEM_PROMPT.format(length=8, factor="SIX6_REF_R1"),
-        TFBIND_USER_PROMPT,
-        _tfbind_stringify_fn
-    ),
-    "TFBind10-Exact-v0": (
-        TFBIND_SYSTEM_PROMPT.format(length=10, factor="Pho4"),
-        TFBIND_USER_PROMPT,
-        _tfbind_stringify_fn
-    ),
-    "AntMorphology-Exact-v0": (
-        ANT_MORPHOLOGY_SYSTEM_PROMPT,
-        MORPHOLOGY_USER_PROMPT,
-        _morphology_stringify_fn
-    ),
-    "DKittyMorphology-Exact-v0": (
-        DKITTY_MORPHOLOGY_SYSTEM_PROMPT,
-        MORPHOLOGY_USER_PROMPT,
-        _morphology_stringify_fn
-    )
-}
-
-
-PARSE_FN_REGISTRY = {
-    "TFBind8-Exact-v0": partial(_tfbind_parse_fn, sequence_length=8),
-    "TFBind10-Exact-v0": partial(_tfbind_parse_fn, sequence_length=10),
-    "AntMorphology-Exact-v0": partial(_morphology_parse_fn, num_parameters=60),
-    "DKittyMorphology-Exact-v0": partial(_morphology_parse_fn, num_parameters=56)
-}

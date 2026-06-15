@@ -102,39 +102,40 @@ class GenerateWithTools(GenerateWithBudgets):
     def _execute_tool_calls(self, tool_calls: list[dict[str, Any]]) -> (
         list[dict[str, Any]]
     ):
-        print(tool_calls)
-        exit()
-        tool_messages = []
+        # https://github.com/huggingface/trl/blob/v1.5.1/trl/trainer/grpo_trainer.py#L1514
+        tool_call_results = []
 
         for tool_call in tool_calls:
-            if tool_call["type"] != "function":
+            if tool_call["type"] == "function":
+                function = tool_call["function"]
+                name = function["name"]
+
+                try:
+                    if name not in self.tool_dict:
+                        raise ValueError(f"Tool {name} not found.")
+
+                    result = self.tool_dict[name](**function["arguments"])
+                    tool_call_results.append((name, result))
+
+                except Exception as e:
+                    result = {"error": str(e)}
+                    tool_call_results.append((name, result))
+
+            else:
                 name = tool_call.get("name", "unknown")
-                tool_messages.append(
-                    {
-                        "role": "tool",
-                        "name": name,
-                        "content": f"Unsupported tool call type: {tool_call['type']}",
-                    }
-                )
-                continue
+                result = {"error": f"Unsupported tool call type: {tool_call['type']}"}
+                tool_call_results.append((name, result))
 
-            function = tool_call["function"]
-            name = function["name"]
-
-            try:
-                if name not in self.tool_dict:
-                    raise ValueError(f"Tool {name} not found.")
-
-                result = self.tool_dict[name](**function["arguments"])
-            except Exception as exc:
-                result = {"error": str(exc)}
-
-            content = result if isinstance(result, list) else str(result)
-            tool_messages.append({"role": "tool", "name": name, "content": content})
-
+        tool_messages = [
+            {"role": "tool", "name": name, "content": str(result)}
+            for name, result in tool_call_results
+        ]
         return tool_messages
 
+    # https://github.com/huggingface/trl/blob/v1.5.1/trl/trainer/grpo_trainer.py#L1433
     def _get_tool_suffix_ids(self, tool_messages: list[dict[str, Any]]) -> list[int]:
+        print(tool_messages)
+        exit()
         dummy_tool_calls = [
             {
                 "type": "function",

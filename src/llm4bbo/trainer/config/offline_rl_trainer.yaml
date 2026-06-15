@@ -10,6 +10,7 @@ build_dataset:
   num_designs: ${num_designs}
   val_design_ratio: 0.2
   seed: 42
+  enable_tools: ${enable_tools}
   scale_reward: true
   response_ratio: 0.5
   candidate_strategy: similarity

@@ -140,6 +140,7 @@ def _build_offline_rl_dataset(
     x: np.ndarray,
     y: np.ndarray,
     y_norm: np.ndarray,
+    enable_tools: bool,
     response_ratio: float,
     candidate_strategy: str,
     num_candidates: int,
@@ -170,7 +171,7 @@ def _build_offline_rl_dataset(
             raise ValueError(f"Invalid task: {task_name}")
 
     examples = []
-    prompt_fn = create_prompt_fn(task_name)
+    prompt_fn = create_prompt_fn(task_name, enable_tools)
 
     for i, (x_resp, y_norm_resp) in tqdm(
         enumerate(zip(x_response, y_norm_response, strict=True)),
@@ -224,12 +225,13 @@ def _build_online_rl_dataset(
     task_name: str,
     x: np.ndarray,
     y: np.ndarray,
+    enable_tools: bool,
     dataset_size: int,
     num_shots: int,
     rng: np.random.Generator
 ) -> Dataset:
     examples = []
-    prompt_fn = create_prompt_fn(task_name)
+    prompt_fn = create_prompt_fn(task_name, enable_tools)
 
     for _ in tqdm(range(dataset_size), desc="Building online RL dataset"):
         index = rng.choice(len(x), num_shots, replace=False)

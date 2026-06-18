@@ -1,9 +1,8 @@
 TOOL_USE = """\
 You may propose 0 to 3 intermediate designs. \
 When you need to verify the score of a design, \
-call the `predict_score` tool \
-with the design wrapped within <design></design> XML tags; \
-the tool returns its predicted score and uncertainty, \
+use the `predict_score` tool, \
+which returns its predicted score and uncertainty, \
 then you continue reasoning.\
 """
 

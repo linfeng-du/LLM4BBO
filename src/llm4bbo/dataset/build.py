@@ -17,6 +17,51 @@ from sklearn.preprocessing import MinMaxScaler
 from .llm_io import create_prompt_fn
 
 
+def load_task_data(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
+    dataset_dir = resources.files("llm4bbo") / "assets" / "datasets"
+    task = design_bench.make(task_name)
+
+    # Fitted on full targets; use it to normalize `task.predict` outputs
+    oracle_scaler = MinMaxScaler()
+
+    if task_name == "TFBind10-Exact-v0":
+        x = np.load(dataset_dir / f"{task_name}_x.npy")
+        y = np.load(dataset_dir / f"{task_name}_y.npy")
+        oracle_scaler.fit(y)
+
+        # Keep half of the designs with the smallest y
+        half_size = len(y) // 2
+        index = y.squeeze(-1).argpartition(half_size)[:half_size]
+        x, y = x[index], y[index]
+
+        # Patch `task.predict` to use relabeled y
+        text = (dataset_dir / f"{task_name}_oracle.txt").read_text()
+        oracle = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
+
+        def predict(x: np.ndarray) -> np.ndarray:
+            x_char = np.array(["A", "C", "G", "T"])[x]
+            return np.array([[oracle["".join(xc)]] for xc in x_char])
+
+        task.predict = predict
+
+    else:
+        x = task.x
+        y = np.load(dataset_dir / f"{task_name}_y.npy")
+
+        # Create a temporary task object to avoid mutating `task`
+        tmp_task = design_bench.make(task_name)
+        tmp_task.dataset.subsample()
+        oracle_scaler.fit(tmp_task.dataset.y)
+
+    return task, x, y, oracle_scaler
+
+
+def evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
+    sorted_index = y.squeeze(-1).argsort()
+    spaced_index = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
+    return sorted_index[spaced_index]
+
+
 def build_dataset(
     task_name: str,
     stage: str,
@@ -25,7 +70,9 @@ def build_dataset(
     seed: int,
     **kwargs: Any
 ) -> DatasetDict:
-    task, x, y, _ = sample_evenly_spaced_designs(task_name, num_designs)
+    task, x, y, _ = load_task_data(task_name)
+    index = evenly_spaced_indices(y, num_designs)
+    x, y = x[index], y[index]
 
     x_train, x_val, y_train, y_val = train_test_split(
         x, y, test_size=val_design_ratio, random_state=seed
@@ -83,57 +130,6 @@ def build_dataset(
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
-def sample_evenly_spaced_designs(task_name: str, num_designs: int) -> (
-    tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]
-):
-    task, x, y, oracle_scaler = _load_dataset(task_name)
-
-    sorted_index = y.squeeze(-1).argsort()
-    spaced_index = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
-    index = sorted_index[spaced_index]
-
-    return task, x[index], y[index], oracle_scaler
-
-
-def _load_dataset(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    dataset_dir = resources.files("llm4bbo") / "assets" / "datasets"
-    task = design_bench.make(task_name)
-
-    # Fitted on the full dataset; use it to normalize `task.predict` outputs
-    oracle_scaler = MinMaxScaler()
-
-    if task_name == "TFBind10-Exact-v0":
-        x = np.load(dataset_dir / f"{task_name}_x.npy")
-        y = np.load(dataset_dir / f"{task_name}_y.npy")
-        oracle_scaler.fit(y)
-
-        # Keep half of the designs with the smallest y
-        half_size = len(y) // 2
-        index = y.squeeze(-1).argpartition(half_size)[:half_size]
-        x, y = x[index], y[index]
-
-        # Patch `task.predict` to use relabeled y
-        text = (dataset_dir / f"{task_name}_oracle.txt").read_text()
-        oracle = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
-
-        def predict(x: np.ndarray) -> np.ndarray:
-            x_char = np.array(["A", "C", "G", "T"])[x]
-            return np.array([[oracle["".join(xc)]] for xc in x_char])
-
-        task.predict = predict
-
-    else:
-        x = task.x
-        y = np.load(dataset_dir / f"{task_name}_y.npy")
-
-        # Create a temporary task object to avoid mutating `task`
-        tmp_task = design_bench.make(task_name)
-        tmp_task.dataset.subsample()
-        oracle_scaler.fit(tmp_task.dataset.y)
-
-    return task, x, y, oracle_scaler
-
-
 def _build_offline_rl_dataset(
     task_name: str,
     task: Task,
@@ -175,7 +171,7 @@ def _build_offline_rl_dataset(
 
     for i, (x_resp, y_norm_resp) in tqdm(
         enumerate(zip(x_response, y_norm_response, strict=True)),
-        desc="Building offline RL dataset",
+        desc="Building SFT / offline RL dataset",
         total=len(x_response)
     ):
         if candidate_strategy == "random":

@@ -45,7 +45,7 @@ def create_tool(task_name: str) -> Callable[[str], dict[str, str]]:
     return predict_score
 
 
-def create_gpr_reward(task_name: str, function: str) -> (
+def create_reward(task_name: str, function: str) -> (
     Callable[[list[ChatType], list[float]], list[float]]
 ):
     parse_fn = create_parse_fn(task_name)

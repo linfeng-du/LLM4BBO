@@ -52,7 +52,6 @@ class GenerateWithTools(GenerateWithBudgets):
         **kwargs: Any
     ) -> ColocateOutput:
         requests = super()._colocate_call(prompts, sampling_params, **kwargs)
-        print(requests[0].outputs[0].text)
 
         for _ in range(self.max_tool_calling_iterations):
             stage_prompts = []
@@ -127,50 +126,46 @@ class GenerateWithTools(GenerateWithBudgets):
                 result = {"error": f"Unsupported tool call type: {tool_call['type']}"}
                 tool_call_results.append((name, result))
 
-        tool_messages = [
+        return [
             {"role": "tool", "name": name, "content": str(result)}
             for name, result in tool_call_results
         ]
-        return tool_messages
 
     # https://github.com/huggingface/trl/blob/v1.5.1/trl/trainer/grpo_trainer.py#L1433
     def _get_tool_suffix_ids(self, tool_messages: list[dict[str, Any]]) -> list[int]:
-        print(tool_messages)
-        exit()
         dummy_tool_calls = [
             {
                 "type": "function",
-                "function": {"name": tool_messages[0]["name"], "arguments": {}},
+                "function": {"name": tool_messages[0]["name"], "arguments": {}}
             }
         ]
         dummy_messages = [
             {"role": "user", "content": "dummy"},
-            {"role": "assistant", "content": "", "tool_calls": dummy_tool_calls},
+            {"role": "assistant", "content": "", "tool_calls": dummy_tool_calls}
         ]
 
         prefix_ids = self.tokenizer.apply_chat_template(
             dummy_messages,
             add_generation_prompt=False,
             tokenize=True,
-            return_dict=False,
+            return_dict=False
         )
         full_ids = self.tokenizer.apply_chat_template(
             dummy_messages + tool_messages,
             add_generation_prompt=True,
             tokenize=True,
-            return_dict=False,
+            return_dict=False
         )
 
-        eos_positions = [
-            i for i, token_id in enumerate(prefix_ids) if token_id == self.eos_token_id
-        ]
+        eos_positions = [i for i, p in enumerate(prefix_ids) if p == self.eos_token_id]
+
         if eos_positions:
             prefix_ids = prefix_ids[: eos_positions[-1] + 1]
 
         if full_ids[: len(prefix_ids)] != prefix_ids:
             raise ValueError(
-                "Unexpected tokenization: the EOS-trimmed prefix IDs are not a "
-                "prefix of the full IDs."
+                "Unexpected tokenization: "
+                "the EOS-trimmed prefix IDs are not a prefix of the full IDs."
             )
 
         return full_ids[len(prefix_ids) :]

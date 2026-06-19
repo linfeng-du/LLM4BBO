@@ -11,7 +11,6 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from llm4bbo.dataset import evenly_spaced_indices, load_task_data
 
 
-
 def train(task_name: str, num_designs: int, seed: int = 42):
     task, x, y, _ = load_task_data(task_name)
 

@@ -23,7 +23,7 @@ def create_tool(task_name: str) -> Callable[[str], dict[str, str]]:
     surrogate = GPRSurrogate(task_name)
     parse_fn = create_parse_fn(task_name)
 
-    def predict_score(x: str) -> tuple[float, float]:
+    def predict_score(x: list[str]) -> tuple[float, float]:
         """
         Predict the score and uncertainty of a design.
 
@@ -33,7 +33,6 @@ def create_tool(task_name: str) -> Callable[[str], dict[str, str]]:
         Returns:
             The predicted score and uncertainty.
         """
-        print(x)
         x = parse_fn([x])
 
         with torch.no_grad():

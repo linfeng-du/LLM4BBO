@@ -11,14 +11,17 @@ from vllm.logprobs import Logprob
 from .typings import ColocateOutput, ServerOutput
 
 
-# TODO: Check whether this prompt needs to be modified for tool calling.
 STOP_THINKING_PROMPT = """
 
 Considering the limited time by the user, \
-I have to give the solution based on the thinking directly now.
+I have to either make a tool call or give the final answer \
+based on the thinking directly now.
 </think>
 
 """
+
+
+# TODO: API model collect SFT data
 
 
 class GenerateWithBudgets:

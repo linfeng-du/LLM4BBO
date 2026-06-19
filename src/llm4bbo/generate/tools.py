@@ -52,6 +52,7 @@ class GenerateWithTools(GenerateWithBudgets):
         **kwargs: Any
     ) -> ColocateOutput:
         requests = super()._colocate_call(prompts, sampling_params, **kwargs)
+        print(requests[0].outputs[0].text)
 
         for _ in range(self.max_tool_calling_iterations):
             stage_prompts = []

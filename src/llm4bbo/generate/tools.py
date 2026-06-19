@@ -67,6 +67,9 @@ class GenerateWithTools(GenerateWithBudgets):
 
                     tool_messages = self._execute_tool_calls(tool_calls)
                     suffix_ids = self._get_tool_suffix_ids(tool_messages)
+                    print(self.tokenizer.decode(suffix_ids))
+                    print(suffix_ids)
+                    exit()
                     self._append_suffix_to_colocate_completion(completion, suffix_ids)
 
                     stage_prompts.append(
@@ -157,18 +160,9 @@ class GenerateWithTools(GenerateWithBudgets):
             return_dict=False
         )
 
-        eos_positions = [i for i, p in enumerate(prefix_ids) if p == self.eos_token_id]
-
-        if eos_positions:
-            prefix_ids = prefix_ids[: eos_positions[-1] + 1]
-
-        if full_ids[: len(prefix_ids)] != prefix_ids:
-            raise ValueError(
-                "Unexpected tokenization: "
-                "the EOS-trimmed prefix IDs are not a prefix of the full IDs."
-            )
-
-        return full_ids[len(prefix_ids) :]
+        num_eos = sum(1 for i in prefix_ids if i == self.eos_token_id)
+        eos_positions = [i for i, fi in enumerate(full_ids) if fi == self.eos_token_id]
+        return full_ids[eos_positions[num_eos - 1] + 1 :]
 
     def _append_suffix_to_colocate_completion(
         self,

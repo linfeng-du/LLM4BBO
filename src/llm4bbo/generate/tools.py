@@ -144,8 +144,14 @@ class GenerateWithTools(GenerateWithBudgets):
                 suffix_ids = self._get_tool_suffix_ids(tool_messages)
 
                 outputs["completion_ids"][index] += suffix_ids
-                outputs["logprobs"][index] += [[0.0] for _ in range(len(suffix_ids))]
-                outputs["logprob_token_ids"][index] += [[i] for i in suffix_ids]
+
+                if outputs["logprobs"] is not None:
+                    outputs["logprobs"][index] += [
+                        [0.0] for _ in range(len(suffix_ids))
+                    ]
+
+                if outputs["logprob_token_ids"] is not None:
+                    outputs["logprob_token_ids"][index] += [[i] for i in suffix_ids]
 
                 new_prompt_ids = (
                     outputs["prompt_ids"][index // n] + outputs["completion_ids"][index]
@@ -163,10 +169,15 @@ class GenerateWithTools(GenerateWithBudgets):
                 outputs["completion_ids"][index] += (
                     new_output["completion_ids"][new_index]
                 )
-                outputs["logprobs"][index] += new_output["logprobs"][new_index]
-                outputs["logprob_token_ids"][index] += (
-                    new_output["logprob_token_ids"][new_index]
-                )
+
+                if outputs["logprobs"] is not None:
+                    outputs["logprobs"][index] += new_output["logprobs"][new_index]
+
+                if outputs["logprob_token_ids"] is not None:
+                    outputs["logprob_token_ids"][index] += (
+                        new_output["logprob_token_ids"][new_index]
+                    )
+
                 pending.append((index, new_output["completion_ids"][new_index]))
 
         return outputs

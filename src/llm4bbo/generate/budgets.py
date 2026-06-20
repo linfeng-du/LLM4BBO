@@ -166,12 +166,16 @@ class GenerateWithBudgets:
             if self.eoth_token_id not in outputs["completion_ids"][index]:
                 # Forcibly stop thinking
                 outputs["completion_ids"][index] += self.stop_thinking_ids
-                outputs["logprobs"][index] += [
-                    [0.0] for _ in range(len(self.stop_thinking_ids))
-                ]
-                outputs["logprob_token_ids"][index] += [
-                    [i] for i in self.stop_thinking_ids
-                ]
+
+                if outputs["logprobs"] is not None:
+                    outputs["logprobs"][index] += [
+                        [0.0] for _ in range(len(self.stop_thinking_ids))
+                    ]
+
+                if outputs["logprob_token_ids"] is not None:
+                    outputs["logprob_token_ids"][index] += [
+                        [i] for i in self.stop_thinking_ids
+                    ]
 
             new_prompt_ids = (
                 outputs["prompt_ids"][index // n] + outputs["completion_ids"][index]
@@ -192,9 +196,13 @@ class GenerateWithBudgets:
         # Append stage 2 outputs to stage 1
         for new_index, index in enumerate(indices):
             outputs["completion_ids"][index] += new_outputs["completion_ids"][new_index]
-            outputs["logprobs"][index] += new_outputs["logprobs"][new_index]
-            outputs["logprob_token_ids"][index] += (
-                new_outputs["logprob_token_ids"][new_index]
-            )
+
+            if outputs["logprobs"] is not None:
+                outputs["logprobs"][index] += new_outputs["logprobs"][new_index]
+
+            if outputs["logprob_token_ids"] is not None:
+                outputs["logprob_token_ids"][index] += (
+                    new_outputs["logprob_token_ids"][new_index]
+                )
 
         return outputs

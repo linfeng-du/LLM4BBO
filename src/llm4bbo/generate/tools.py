@@ -53,27 +53,32 @@ class GenerateWithTools(GenerateWithBudgets):
     ) -> ColocateOutput:
         requests = super()._colocate_call(prompts, sampling_params, **kwargs)
 
+        outputs= [
+            (request, completion, completion.token_ids)
+            for request in requests
+            for completion in request.outputs
+        ]
+
         for _ in range(self.max_tool_calling_iterations):
             stage_prompts = []
-            completions = []
+            stage_completions = []
 
-            for request in requests:
-                for completion in request.outputs:
-                    parsed = parse_response(self.tokenizer, completion.token_ids)
-                    tool_calls = parsed.get("tool_calls")
+            for request, completion, new_token_ids in pending:
+                parsed = parse_response(self.tokenizer, new_token_ids)
+                tool_calls = parsed.get("tool_calls")
 
-                    if not tool_calls:
-                        continue
+                if not tool_calls:
+                    continue
 
-                    tool_messages = self._execute_tool_calls(tool_calls)
-                    suffix_ids = self._get_tool_suffix_ids(tool_messages)
+                tool_messages = self._execute_tool_calls(tool_calls)
+                suffix_ids = self._get_tool_suffix_ids(tool_messages)
 
-                    completion.text += self.tokenizer.decode(suffix_ids)
-                    completion.token_ids += suffix_ids
+                completion.text += self.tokenizer.decode(suffix_ids)
+                completion.token_ids += suffix_ids
 
-                    prompt_ids = request.prompt_token_ids + completion.token_ids
-                    stage_prompts.append({"prompt_token_ids": prompt_ids})
-                    completions.append(completion)
+                prompt_ids = request.prompt_token_ids + completion.token_ids
+                stage_prompts.append({"prompt_token_ids": prompt_ids})
+                stage_completions.append((request, completion))
 
             if not stage_prompts:
                 break
@@ -84,14 +89,17 @@ class GenerateWithTools(GenerateWithBudgets):
                 stage_prompts, stage_params, **kwargs
             )
 
-            for stage_request, completion in zip(
-                stage_requests, completions, strict=True
+            pending = []
+
+            for stage_request, (request, completion) in zip(
+                stage_requests, stage_completions, strict=True
             ):
                 stage_completion = stage_request.outputs[0]
                 completion.text += stage_completion.text
                 completion.token_ids += stage_completion.token_ids
                 completion.finish_reason = stage_completion.finish_reason
                 completion.stop_reason = stage_completion.stop_reason
+                pending.append((request, completion, stage_completion.token_ids))
 
         return requests
 

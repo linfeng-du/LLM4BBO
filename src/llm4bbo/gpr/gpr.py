@@ -8,13 +8,13 @@ import design_bench
 import numpy as np
 
 import torch
-from torch.distributions import Normal
-from transformers.pipelines.text_generation import ChatType
-
 from botorch.models import SingleTaskGP
 from gpytorch.constraints import Positive
 from gpytorch.kernels import RBFKernel
 from gpytorch.likelihoods import GaussianLikelihood
+from torch.distributions import Normal
+
+from transformers.pipelines.text_generation import ChatType
 
 from llm4bbo.dataset import create_parse_fn
 

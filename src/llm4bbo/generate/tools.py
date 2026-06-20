@@ -55,7 +55,7 @@ class GenerateWithTools(GenerateWithBudgets):
 
         for _ in range(self.max_tool_calling_iterations):
             stage_prompts = []
-            stage_completions = []
+            completions = []
 
             for request in requests:
                 for completion in request.outputs:
@@ -67,36 +67,29 @@ class GenerateWithTools(GenerateWithBudgets):
 
                     tool_messages = self._execute_tool_calls(tool_calls)
                     suffix_ids = self._get_tool_suffix_ids(tool_messages)
-                    print(self.tokenizer.decode(suffix_ids))
-                    print(suffix_ids)
-                    exit()
-                    self._append_suffix_to_colocate_completion(completion, suffix_ids)
 
-                    stage_prompts.append(
-                        {
-                            "prompt_token_ids": (
-                                list(request.prompt_token_ids) + list(completion.token_ids)
-                            )
-                        }
-                    )
-                    stage_completions.append(completion)
+                    completion.text += self.tokenizer.decode(suffix_ids)
+                    completion.token_ids += suffix_ids
+
+                    prompt_ids = request.prompt_token_ids + completion.token_ids
+                    stage_prompts.append({"prompt_token_ids": prompt_ids})
+                    completions.append(completion)
 
             if not stage_prompts:
                 break
 
             stage_params = sampling_params.clone()
             stage_params.n = 1
-            stage_requests = self.generate_func(stage_prompts, stage_params, **kwargs)
+            stage_requests = super()._colocate_call(
+                stage_prompts, stage_params, **kwargs
+            )
 
             for stage_request, completion in zip(
-                stage_requests, stage_completions, strict=True
+                stage_requests, completions, strict=True
             ):
                 stage_completion = stage_request.outputs[0]
                 completion.text += stage_completion.text
-                completion.token_ids = (
-                    list(completion.token_ids) + list(stage_completion.token_ids)
-                )
-
+                completion.token_ids += stage_completion.token_ids
                 completion.finish_reason = stage_completion.finish_reason
                 completion.stop_reason = stage_completion.stop_reason
 
@@ -163,14 +156,6 @@ class GenerateWithTools(GenerateWithBudgets):
         num_eos = sum(1 for i in prefix_ids if i == self.eos_token_id)
         eos_positions = [i for i, fi in enumerate(full_ids) if fi == self.eos_token_id]
         return full_ids[eos_positions[num_eos - 1] + 1 :]
-
-    def _append_suffix_to_colocate_completion(
-        self,
-        completion: Any,
-        suffix_ids: list[int],
-    ) -> None:
-        completion.text += self.tokenizer.decode(suffix_ids, skip_special_tokens=False)
-        completion.token_ids = list(completion.token_ids) + suffix_ids
 
     def _append_suffix_to_server_completion(
         self,

@@ -94,7 +94,7 @@ class GenerateWithBudgets:
 
                     if completion.logprobs is not None:
                         completion.logprobs += [
-                            {i: Logprob(logprob=0.0, decoded_token=t)}
+                            {i: Logprob(0.0, decoded_token=t)}
                             for i, t in zip(
                                 self.stop_thinking_ids,
                                 self.stop_thinking_tokens,
@@ -136,6 +136,7 @@ class GenerateWithBudgets:
     def _server_call(
         self,
         prompts: list[list[int]],
+        n: int = 1,
         **kwargs: Any
     ) -> ServerOutput:
         kwargs["generation_kwargs"] = kwargs.get("generation_kwargs") or {}
@@ -147,6 +148,7 @@ class GenerateWithBudgets:
 
         # Stage 1: Generate thinking up to `self.thinking_budget` tokens
         params = copy.deepcopy(kwargs)
+        params["n"] = n
         params["max_tokens"] = self.thinking_budget - len(self.stop_thinking_ids)
         params["generation_kwargs"]["stop"] = ["</think>\n\n"]
 
@@ -154,30 +156,28 @@ class GenerateWithBudgets:
 
         # Process stage 1 outputs
         new_prompts = []
-        completions = []
+        indices = []
 
-        for index, (completion_ids, logprobs, logprob_token_ids) in enumerate(
-            zip(
-                outputs["completion_ids"],
-                outputs["logprobs"],
-                outputs["logprob_token_ids"],
-                strict=True
-            )
-        ):
-            if self.eos_token_id in completion_ids:
+        for index in range(len(outputs["completion_ids"])):
+            if self.eos_token_id in outputs["completion_ids"][index]:
                 # Model outputs EOS before </think>
                 continue
 
-            if self.eoth_token_id not in completion_ids:
+            if self.eoth_token_id not in outputs["completion_ids"][index]:
                 # Forcibly stop thinking
-                completion_ids += self.stop_thinking_ids
-                logprobs += [[0.0]] * len(self.stop_thinking_ids)
-                logprob_token_ids += [[i] for i in self.stop_thinking_ids]
+                outputs["completion_ids"][index] += self.stop_thinking_ids
+                outputs["logprobs"][index] += [
+                    [0.0] for _ in range(len(self.stop_thinking_ids))
+                ]
+                outputs["logprob_token_ids"][index] += [
+                    [i] for i in self.stop_thinking_ids
+                ]
 
-            prompt_index = index // kwargs["n"]
-            new_prompt_ids = outputs["prompt_ids"][prompt_index] + completion_ids
+            new_prompt_ids = (
+                outputs["prompt_ids"][index // n] + outputs["completion_ids"][index]
+            )
             new_prompts.append(new_prompt_ids)
-            completions.append((completion_ids, logprobs, logprob_token_ids))
+            indices.append(index)
 
         # Stage 2: Generate after thinking (skip when stage 1 already hits EOS)
         params = copy.deepcopy(kwargs)
@@ -190,20 +190,11 @@ class GenerateWithBudgets:
             new_outputs = self.generate_func(new_prompts, **params)
 
         # Append stage 2 outputs to stage 1
-        for (
-            (completion_ids, logprobs, logprob_token_ids),
-            new_completion_ids,
-            new_logprobs,
-            new_logprob_token_ids
-        ) in zip(
-            completions,
-            new_outputs["completion_ids"],
-            new_outputs["logprobs"],
-            new_outputs["logprob_token_ids"],
-            strict=True
-        ):
-            completion_ids += new_completion_ids
-            logprobs += new_logprobs
-            logprob_token_ids += new_logprob_token_ids
+        for new_index, index in enumerate(indices):
+            outputs["completion_ids"][index] += new_outputs["completion_ids"][new_index]
+            outputs["logprobs"][index] += new_outputs["logprobs"][new_index]
+            outputs["logprob_token_ids"][index] += (
+                new_outputs["logprob_token_ids"][new_index]
+            )
 
         return outputs

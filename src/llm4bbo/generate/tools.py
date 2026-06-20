@@ -1,12 +1,16 @@
-import copy
 from collections.abc import Callable
 from typing import Any
 
 from transformers import PreTrainedTokenizerBase
 from transformers.pipelines.text_generation import ChatType
-from trl.chat_template_utils import add_response_schema, parse_response
+from trl.chat_template_utils import (
+    add_response_schema,
+    get_training_chat_template,
+    parse_response
+)
 
 from vllm import LLM, SamplingParams
+from vllm.logprobs import Logprob
 
 from .budgets import GenerateWithBudgets
 from .typings import ColocateOutput, ServerOutput
@@ -26,6 +30,7 @@ class GenerateWithTools(GenerateWithBudgets):
         self.tools = tools
         self.tool_dict = {tool.__name__: tool for tool in tools}
         self.max_tool_calling_iterations = max_tool_calling_iterations
+        self.chat_template = get_training_chat_template(self.tokenizer)
 
         if self.tokenizer.response_schema is None:
             self.tokenizer = add_response_schema(self.tokenizer)
@@ -53,18 +58,18 @@ class GenerateWithTools(GenerateWithBudgets):
     ) -> ColocateOutput:
         requests = super()._colocate_call(prompts, sampling_params, **kwargs)
 
-        outputs= [
+        pending = [
             (request, completion, completion.token_ids)
             for request in requests
             for completion in request.outputs
         ]
 
         for _ in range(self.max_tool_calling_iterations):
-            stage_prompts = []
-            stage_completions = []
+            new_prompts = []
+            request_completions = []
 
-            for request, completion, new_token_ids in pending:
-                parsed = parse_response(self.tokenizer, new_token_ids)
+            for request, completion, new_completion_ids in pending:
+                parsed = parse_response(self.tokenizer, new_completion_ids)
                 tool_calls = parsed.get("tool_calls")
 
                 if not tool_calls:
@@ -76,32 +81,95 @@ class GenerateWithTools(GenerateWithBudgets):
                 completion.text += self.tokenizer.decode(suffix_ids)
                 completion.token_ids += suffix_ids
 
-                prompt_ids = request.prompt_token_ids + completion.token_ids
-                stage_prompts.append({"prompt_token_ids": prompt_ids})
-                stage_completions.append((request, completion))
+                if completion.logprobs is not None:
+                    completion.logprobs += [
+                        {i: Logprob(0.0, decoded_token=self.tokenizer.decode(i))}
+                        for i in suffix_ids
+                    ]
 
-            if not stage_prompts:
+                new_prompt_ids = request.prompt_token_ids + completion.token_ids
+                new_prompts.append({"prompt_token_ids": new_prompt_ids})
+                request_completions.append((request, completion))
+
+            if not new_prompts:
                 break
 
-            stage_params = sampling_params.clone()
-            stage_params.n = 1
-            stage_requests = super()._colocate_call(
-                stage_prompts, stage_params, **kwargs
-            )
+            params = sampling_params.clone()
+            params.n = 1
+            new_requests = super()._colocate_call(new_prompts, params, **kwargs)
 
             pending = []
 
-            for stage_request, (request, completion) in zip(
-                stage_requests, stage_completions, strict=True
+            for new_request, (request, completion) in zip(
+                new_requests, request_completions, strict=True
             ):
-                stage_completion = stage_request.outputs[0]
-                completion.text += stage_completion.text
-                completion.token_ids += stage_completion.token_ids
-                completion.finish_reason = stage_completion.finish_reason
-                completion.stop_reason = stage_completion.stop_reason
-                pending.append((request, completion, stage_completion.token_ids))
+                new_completion = new_request.outputs[0]
+
+                completion.text += new_completion.text
+                completion.token_ids += new_completion.token_ids
+                completion.finish_reason = new_completion.finish_reason
+                completion.stop_reason = new_completion.stop_reason
+
+                if completion.cumulative_logprob is not None:
+                    completion.cumulative_logprob += new_completion.cumulative_logprob
+
+                if completion.logprobs is not None:
+                    completion.logprobs += new_completion.logprobs
+
+                pending.append((request, completion, new_completion.token_ids))
 
         return requests
+
+    def _server_call(
+        self,
+        prompts: list[list[int]],
+        n: int = 1,
+        **kwargs: Any
+    ) -> ServerOutput:
+        outputs = super()._server_call(prompts, n, **kwargs)
+        pending = [(index, ids) for index, ids in enumerate(outputs["completion_ids"])]
+
+        for _ in range(self.max_tool_calling_iterations):
+            new_prompts = []
+            indices = []
+
+            for index, new_completion_ids in pending:
+                parsed = parse_response(self.tokenizer, new_completion_ids)
+                tool_calls = parsed.get("tool_calls")
+
+                if not tool_calls:
+                    continue
+
+                tool_messages = self._execute_tool_calls(tool_calls)
+                suffix_ids = self._get_tool_suffix_ids(tool_messages)
+
+                outputs["completion_ids"][index] += suffix_ids
+                outputs["logprobs"][index] += [[0.0] for _ in range(len(suffix_ids))]
+                outputs["logprob_token_ids"][index] += [[i] for i in suffix_ids]
+
+                new_prompt_ids = (
+                    outputs["prompt_ids"][index // n] + outputs["completion_ids"][index]
+                )
+                new_prompts.append(new_prompt_ids)
+                indices.append(index)
+
+            if not new_prompts:
+                break
+
+            new_output = super()._server_call(new_prompts, **kwargs)
+            pending = []
+
+            for new_index, index in enumerate(indices):
+                outputs["completion_ids"][index] += (
+                    new_output["completion_ids"][new_index]
+                )
+                outputs["logprobs"][index] += new_output["logprobs"][new_index]
+                outputs["logprob_token_ids"][index] += (
+                    new_output["logprob_token_ids"][new_index]
+                )
+                pending.append((index, new_output["completion_ids"][new_index]))
+
+        return outputs
 
     def _execute_tool_calls(self, tool_calls: list[dict[str, Any]]) -> (
         list[dict[str, Any]]
@@ -149,75 +217,24 @@ class GenerateWithTools(GenerateWithBudgets):
         ]
 
         prefix_ids = self.tokenizer.apply_chat_template(
-            dummy_messages,
-            add_generation_prompt=False,
-            tokenize=True,
-            return_dict=False
+            dummy_messages, chat_template=self.chat_template, return_dict=False
         )
         full_ids = self.tokenizer.apply_chat_template(
             dummy_messages + tool_messages,
+            chat_template=self.chat_template,
             add_generation_prompt=True,
-            tokenize=True,
             return_dict=False
         )
 
-        num_eos = sum(1 for i in prefix_ids if i == self.eos_token_id)
-        eos_positions = [i for i, fi in enumerate(full_ids) if fi == self.eos_token_id]
-        return full_ids[eos_positions[num_eos - 1] + 1 :]
+        eos_positions = [i for i, p in enumerate(prefix_ids) if p == self.eos_token_id]
 
-    def _append_suffix_to_server_completion(
-        self,
-        output: ServerOutput,
-        completion_index: int,
-        suffix_ids: list[int],
-    ) -> None:
-        output["completion_ids"][completion_index] += suffix_ids
+        if eos_positions:
+            prefix_ids = prefix_ids[: eos_positions[-1] + 1]
 
-    def _server_call(
-        self,
-        prompts: list[list[int]],
-        **kwargs: Any,
-    ) -> ServerOutput:
-        kwargs = copy.deepcopy(kwargs)
-        kwargs["generation_kwargs"] = kwargs.get("generation_kwargs") or {}
+        if full_ids[: len(prefix_ids)] != prefix_ids:
+            raise ValueError(
+                "Unexpected tokenization: "
+                "the EOS-trimmed prefix IDs are not a prefix of the full IDs."
+            )
 
-        output = super()._server_call(prompts, **kwargs)
-        n = kwargs.get("n", 1)
-
-        for _ in range(self.max_tool_calling_iterations):
-            idxs_with_tool: list[int] = []
-
-            for completion_index, completion_ids in enumerate(output["completion_ids"]):
-                parsed = parse_response(self.tokenizer, completion_ids)
-                if parsed.get("tool_calls"):
-                    idxs_with_tool.append(completion_index)
-
-            if not idxs_with_tool:
-                break
-
-            stage_prompts: list[list[int]] = []
-
-            for completion_index in idxs_with_tool:
-                parsed = parse_response(
-                    self.tokenizer, output["completion_ids"][completion_index]
-                )
-                tool_messages = self._execute_tool_calls(parsed["tool_calls"])
-                suffix_ids = self._get_tool_suffix_ids(tool_messages)
-                self._append_suffix_to_server_completion(
-                    output, completion_index, suffix_ids
-                )
-                stage_prompts.append(
-                    output["prompt_ids"][completion_index // n]
-                    + output["completion_ids"][completion_index]
-                )
-
-            stage_kwargs = copy.deepcopy(kwargs)
-            stage_kwargs["n"] = 1
-            stage_output = self.generate_func(stage_prompts, **stage_kwargs)
-
-            for stage_index, completion_index in enumerate(idxs_with_tool):
-                output["completion_ids"][completion_index] += stage_output[
-                    "completion_ids"
-                ][stage_index]
-
-        return output
+        return full_ids[len(prefix_ids) :]

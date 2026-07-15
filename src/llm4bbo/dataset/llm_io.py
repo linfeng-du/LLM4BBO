@@ -6,55 +6,63 @@ from functools import partial
 import numpy as np
 from transformers.pipelines.text_generation import ChatType
 
-from . import prompt
+from . import prompts
 
 
-def create_prompt_fn(task_name: str, enable_tools: bool) -> (
-    Callable[
-        [np.ndarray, np.ndarray, np.ndarray | None],
-        ChatType | tuple[ChatType, ChatType]
-    ]
-):
+def create_prompt_fn(task_name: str) -> Callable:
     match task_name:
         case "TFBind8-Exact-v0":
-            system_prompt = prompt.TFBIND_TASK.format(length=8, factor="SIX6_REF_R1")
-            user_prompt = prompt.TFBIND_REFERENCES
+            system_prompt = prompts.TFBIND_TASK.format(length=8, factor="SIX6_REF_R1")
+            user_prompt = prompts.TFBIND_REFERENCES
             stringify_fn = _tfbind_stringify_fn
         case "TFBind10-Exact-v0":
-            system_prompt = prompt.TFBIND_TASK.format(length=10, factor="Pho4")
-            user_prompt = prompt.TFBIND_REFERENCES
+            system_prompt = prompts.TFBIND_TASK.format(length=10, factor="Pho4")
+            user_prompt = prompts.TFBIND_REFERENCES
             stringify_fn = _tfbind_stringify_fn
         case "AntMorphology-Exact-v0":
-            system_prompt = prompt.ANT_MORPHOLOGY_TASK
-            user_prompt = prompt.MORPHOLOGY_REFERENCES
+            system_prompt = prompts.ANT_MORPHOLOGY_TASK
+            user_prompt = prompts.MORPHOLOGY_REFERENCES
             stringify_fn = _morphology_stringify_fn
         case "DKittyMorphology-Exact-v0":
-            system_prompt = prompt.DKITTY_MORPHOLOGY_TASK
-            user_prompt = prompt.MORPHOLOGY_REFERENCES
+            system_prompt = prompts.DKITTY_MORPHOLOGY_TASK
+            user_prompt = prompts.MORPHOLOGY_REFERENCES
             stringify_fn = _morphology_stringify_fn
         case _:
             raise ValueError(f"Invalid task: {task_name}")
 
-    if enable_tools:
-        system_prompt += f"\n\n{prompt.TOOL_USE}"
-
-    system_prompt += f"\n\n{prompt.FINAL_ANSWER}"
-
     def prompt_fn(
-        x_reference: np.ndarray,
-        y_reference: np.ndarray,
-        x_response: np.ndarray | None = None
+        x_ref: np.ndarray,
+        y_ref: np.ndarray,
+        use_tools: bool,
+        x_resp: np.ndarray | None = None,
+        generate_trace: bool = False
     ) -> ChatType | tuple[ChatType, ChatType]:
         references = "\n".join(
-            stringify_fn(x, y) for x, y in zip(x_reference, y_reference, strict=True)
+            stringify_fn(x, y) for x, y in zip(x_ref, y_ref, strict=True)
         )
+
+        if use_tools:
+            tool_instruction = f"\n\n{prompts.TOOL_USE}"
+        else:
+            tool_instruction = ""
+
+        if generate_trace:
+            assert x_resp is not None
+            final_instruction = prompts.REASONING_TRACE.format(
+                response=stringify_fn(x_resp)
+            )
+        else:
+            final_instruction = prompts.FINAL_ANSWER
+
+        system = f"{system_prompt}{tool_instruction}\n\n{final_instruction}"
+        user = user_prompt.format(references=references)
         prompt = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt.format(references=references)}
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
         ]
 
-        if x_response is not None:
-            completion = [{"role": "assistant", "content": stringify_fn(x_response)}]
+        if x_resp is not None:
+            completion = [{"role": "assistant", "content": stringify_fn(x_resp)}]
             return prompt, completion
 
         return prompt

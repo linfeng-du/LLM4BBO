@@ -24,7 +24,7 @@ based on the thinking directly now.
 class GenerateWithBudgets:
     def __init__(
         self,
-        generate_func: Callable[..., ColocateOutput | ServerOutput],
+        generate_func: Callable,
         tokenizer: PreTrainedTokenizerBase,
         thinking_budget: int,
         answer_budget: int

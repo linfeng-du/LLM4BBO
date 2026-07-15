@@ -19,7 +19,7 @@ from .typings import ColocateOutput, ServerOutput
 class GenerateWithTools(GenerateWithBudgets):
     def __init__(
         self,
-        generate_func: Callable[..., ColocateOutput | ServerOutput],
+        generate_func: Callable,
         tokenizer: PreTrainedTokenizerBase,
         tools: list[Callable],
         thinking_budget: int,

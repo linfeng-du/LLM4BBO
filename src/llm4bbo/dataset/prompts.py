@@ -6,12 +6,29 @@ which returns its predicted score and uncertainty, \
 then you continue reasoning.\
 """
 
+
 FINAL_ANSWER = """\
 Think step-by-step but concisely. \
 Do not repeat information already provided to you. \
 When giving your final answer, \
 you must wrap the design within <design></design> XML tags. \
 Answer only with the design and nothing else.\
+"""
+
+
+REASONING_TRACE = """\
+Generate a concise reasoning trace that naturally leads to the target design below. \
+The target design is known to be better than all provided examples.
+
+Target design:
+{response}
+
+Do not mention or imply that the target design was provided in advance. \
+Present it as the result of your own analysis. \
+The target design may appear naturally during the reasoning process, \
+including as an intermediate design or in a tool call. \
+When giving the final answer, \
+output exactly the target design and nothing else.\
 """
 
 

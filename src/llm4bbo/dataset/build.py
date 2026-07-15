@@ -18,10 +18,11 @@ from .llm_io import create_prompt_fn
 
 
 def load_task_data(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    dataset_dir = resources.files("llm4bbo") / "assets" / "datasets"
+    dataset_dir = resources.files("llm4bbo") / "assets" / "data"
     task = design_bench.make(task_name)
 
-    # Fitted on full targets; use it to normalize `task.predict` outputs
+    # Fit on all available targets so `task.predict` outputs
+    # can later be normalized against the task's full target range
     oracle_scaler = MinMaxScaler()
 
     if task_name == "TFBind10-Exact-v0":
@@ -29,12 +30,12 @@ def load_task_data(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMax
         y = np.load(dataset_dir / f"{task_name}_y.npy")
         oracle_scaler.fit(y)
 
-        # Keep half of the designs with the smallest y
+        # Keep half of the designs with the smallest targets
         half_size = len(y) // 2
         index = y.squeeze(-1).argpartition(half_size)[:half_size]
         x, y = x[index], y[index]
 
-        # Patch `task.predict` to use relabeled y
+        # Patch `task.predict` to use relabeled targets
         text = (dataset_dir / f"{task_name}_oracle.txt").read_text()
         oracle = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
 
@@ -66,93 +67,93 @@ def build_dataset(
     task_name: str,
     stage: str,
     num_designs: int,
-    val_design_ratio: float,
+    val_ratio: float,
     seed: int,
     **kwargs: Any
 ) -> DatasetDict:
+    assert stage in {"trace", "sft", "offline_rl", "online_rl"}
+
     task, x, y, _ = load_task_data(task_name)
-    index = evenly_spaced_indices(y, num_designs)
-    x, y = x[index], y[index]
+    sample_index = evenly_spaced_indices(y, num_designs)
+    x_sample, y_sample = x[sample_index], y[sample_index]
 
     x_train, x_val, y_train, y_val = train_test_split(
-        x, y, test_size=val_design_ratio, random_state=seed
+        x_sample, y_sample, test_size=val_ratio, random_state=seed
     )
 
-    # Min-max normalize y to ensure a consistent reward scale across tasks
+    train_rng = np.random.default_rng(seed)
+    val_rng = np.random.default_rng(seed + 1)
+
+    if stage == "online_rl":
+        train_dataset = _build_online_dataset(
+            task_name, x_train, y_train, train_rng, **kwargs
+        )
+        val_dataset = _build_online_dataset(
+            task_name, x_val, y_val, val_rng, **kwargs
+        )
+        return DatasetDict({"train": train_dataset, "validation": val_dataset})
+
+    # Normalize targets to keep reward scales consistent across tasks
     scaler = MinMaxScaler()
     y_train_norm = scaler.fit_transform(y_train)
     y_val_norm = scaler.transform(y_val)
 
-    rng = np.random.default_rng(seed)
+    generate_trace = stage == "trace"
 
-    if stage == "sft":
-        off_train_dataset = _build_offline_rl_dataset(
-            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
-        )
-        off_val_dataset = _build_offline_rl_dataset(
-            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
-        )
-
-        filter_fn = lambda example: example["reward"] > 0
-        train_dataset = off_train_dataset.filter(filter_fn).remove_columns("reward")
-        val_dataset = off_val_dataset.filter(filter_fn).remove_columns("reward")
-
-    elif stage == "offline_rl":
+    if stage == "offline_rl":
         scale_reward = kwargs.pop("scale_reward")
 
-        train_dataset = _build_offline_rl_dataset(
-            task_name, task, x_train, y_train, y_train_norm, rng=rng, **kwargs
-        )
-        val_dataset = _build_offline_rl_dataset(
-            task_name, task, x_val, y_val, y_val_norm, rng=rng, **kwargs
-        )
+    train_dataset = _build_offline_dataset(
+        task_name, task, x_train, y_train, y_train_norm,
+        generate_trace, train_rng, **kwargs
+    )
+    val_dataset = _build_offline_dataset(
+        task_name, task, x_val, y_val, y_val_norm,
+        generate_trace, val_rng, **kwargs
+    )
 
-        if scale_reward:
-            # Divide rewards by std
-            r_train_std = np.std(train_dataset["reward"]).item()
-            assert r_train_std > 0
+    if stage in {"trace", "sft"}:
+        filter_fn = lambda example: example["reward"] > 0
+        train_dataset = train_dataset.filter(filter_fn).remove_columns("reward")
+        val_dataset = val_dataset.filter(filter_fn).remove_columns("reward")
 
-            map_fn = lambda example: {"reward": example["reward"] / r_train_std}
-            train_dataset = train_dataset.map(map_fn)
-            val_dataset = val_dataset.map(map_fn)
+    elif scale_reward:
+        # Divide rewards by std
+        r_train_std = np.std(train_dataset["reward"]).item()
+        assert r_train_std > 0
 
-    elif stage == "online_rl":
-        train_dataset = _build_online_rl_dataset(
-            task_name, x_train, y_train, rng=rng, **kwargs
-        )
-        val_dataset = _build_online_rl_dataset(
-            task_name, x_val, y_val, rng=rng, **kwargs
-        )
-
-    else:
-        raise ValueError(f"Invalid stage: {stage}")
+        map_fn = lambda example: {"reward": example["reward"] / r_train_std}
+        train_dataset = train_dataset.map(map_fn)
+        val_dataset = val_dataset.map(map_fn)
 
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
 
-def _build_offline_rl_dataset(
+def _build_offline_dataset(
     task_name: str,
     task: Task,
     x: np.ndarray,
     y: np.ndarray,
     y_norm: np.ndarray,
-    enable_tools: bool,
+    generate_trace: bool,
+    rng: np.random.Generator,
     response_ratio: float,
     candidate_strategy: str,
     num_candidates: int,
     num_permutations: int,
     num_shots: int,
-    rng: np.random.Generator
+    use_tools: bool
 ) -> Dataset:
     # Partition the dataset into disjoint response and prompt subsets
     perm_index = rng.permutation(len(x))
-    x, y, y_norm = x[perm_index], y[perm_index], y_norm[perm_index]
+    x_perm, y_perm, y_norm_perm = x[perm_index], y[perm_index], y_norm[perm_index]
+    response_size = int(len(x_perm) * response_ratio)
 
-    response_size = int(len(x) * response_ratio)
-
-    x_response, y_norm_response = x[:response_size], y_norm[:response_size]
+    x_response, y_norm_response = (
+        x_perm[:response_size], y_norm_perm[:response_size]
+    )
     x_prompt, y_prompt, y_norm_prompt = (
-        x[response_size:], y[response_size:], y_norm[response_size:]
+        x_perm[response_size:], y_perm[response_size:], y_norm_perm[response_size:]
     )
 
     if candidate_strategy == "similarity":
@@ -167,11 +168,11 @@ def _build_offline_rl_dataset(
             raise ValueError(f"Invalid task: {task_name}")
 
     examples = []
-    prompt_fn = create_prompt_fn(task_name, enable_tools)
+    prompt_fn = create_prompt_fn(task_name)
 
     for i, (x_resp, y_norm_resp) in tqdm(
         enumerate(zip(x_response, y_norm_response, strict=True)),
-        desc="Building SFT / offline RL dataset",
+        desc="Building offline dataset",
         total=len(x_response)
     ):
         if candidate_strategy == "random":
@@ -202,38 +203,40 @@ def _build_offline_rl_dataset(
 
         # Include different permutations of the references
         for _ in range(num_permutations):
-            perm_index = rng.permutation(len(x_ref))
-            prompt, completion = prompt_fn(x_ref[perm_index], y_ref[perm_index], x_resp)
-
-            examples.append(
-                {
-                    "prompt": prompt,
-                    "completion": completion,
-                    "reward": reward,
-                    "chat_template_kwargs": {"enable_thinking": False}
-                }
+            ref_perm_index = rng.permutation(len(x_ref))
+            prompt, completion = prompt_fn(
+                x_ref[ref_perm_index], y_ref[ref_perm_index], use_tools,
+                x_resp, generate_trace
             )
+
+            example = {
+                "prompt": prompt,
+                "completion": completion,
+                "reward": reward,
+                "chat_template_kwargs": {"enable_thinking": generate_trace}
+            }
+            examples.append(example)
 
     return Dataset.from_list(examples)
 
 
-def _build_online_rl_dataset(
+def _build_online_dataset(
     task_name: str,
     x: np.ndarray,
     y: np.ndarray,
-    enable_tools: bool,
+    rng: np.random.Generator,
     dataset_size: int,
     num_shots: int,
-    rng: np.random.Generator
+    use_tools: bool
 ) -> Dataset:
     examples = []
-    prompt_fn = create_prompt_fn(task_name, enable_tools)
+    prompt_fn = create_prompt_fn(task_name)
 
-    for _ in tqdm(range(dataset_size), desc="Building online RL dataset"):
-        index = rng.choice(len(x), num_shots, replace=False)
-        x_ref, y_ref = x[index], y[index]
+    for _ in tqdm(range(dataset_size), desc="Building online dataset"):
+        ref_index = rng.choice(len(x), num_shots, replace=False)
+        x_ref, y_ref = x[ref_index], y[ref_index]
 
-        prompt = prompt_fn(x_ref, y_ref)
+        prompt = prompt_fn(x_ref, y_ref, use_tools)
         best_f = y_ref.max().item()
         examples.append({"prompt": prompt, "best_f": best_f})
 

@@ -112,18 +112,26 @@ def build_dataset(
     )
 
     if stage in {"trace", "sft"}:
-        filter_fn = lambda example: example["reward"] > 0
-        train_dataset = train_dataset.filter(filter_fn).remove_columns("reward")
-        val_dataset = val_dataset.filter(filter_fn).remove_columns("reward")
+        is_positive = lambda example: example["reward"] > 0
+        train_dataset = train_dataset.filter(is_positive).remove_columns("reward")
+        val_dataset = val_dataset.filter(is_positive).remove_columns("reward")
+
+        if stage == "sft":
+            # Add metadata read by `SFTTrainer` to disable thinking during SFT
+            disable_thinking = lambda example: {
+                "chat_template_kwargs": {"enable_thinking": False}
+            }
+            train_dataset = train_dataset.map(disable_thinking)
+            val_dataset = val_dataset.map(disable_thinking)
 
     elif scale_reward:
         # Divide the rewards by the training-set standard deviation
         r_train_std = np.std(train_dataset["reward"]).item()
         assert r_train_std > 0
 
-        map_fn = lambda example: {"reward": example["reward"] / r_train_std}
-        train_dataset = train_dataset.map(map_fn)
-        val_dataset = val_dataset.map(map_fn)
+        divide_reward = lambda example: {"reward": example["reward"] / r_train_std}
+        train_dataset = train_dataset.map(divide_reward)
+        val_dataset = val_dataset.map(divide_reward)
 
     return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
@@ -210,9 +218,7 @@ def _build_offline_dataset(
             examples.append({
                 "prompt": prompt,
                 "completion": completion,
-                "reward": reward,
-                # TODO: Confirm the appropriate behavior for trace generation
-                "chat_template_kwargs": {"enable_thinking": False}
+                "reward": reward
             })
 
     return Dataset.from_list(examples)

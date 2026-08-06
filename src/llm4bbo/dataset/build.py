@@ -4,6 +4,7 @@ from typing import Any
 from tqdm import tqdm
 
 import llm4bbo.patches
+
 import design_bench
 from design_bench.task import Task
 
@@ -14,40 +15,40 @@ from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from .llm_io import create_prompt_fn
+from .codec import create_prompt_fn
 
 
-def load_task_data(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    dataset_dir = resources.files("llm4bbo") / "assets" / "data"
+def prepare_task(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
     task = design_bench.make(task_name)
 
-    # Fit on all available targets so `task.predict` outputs
-    # can later be normalized against the task's full target range
+    # Fit on all available targets so outputs from `task.predict`
+    # can later be normalized using the task's full target range
     oracle_scaler = MinMaxScaler()
+    data_dir = resources.files("llm4bbo") / "assets" / "data"
 
     if task_name == "TFBind10-Exact-v0":
-        x = np.load(dataset_dir / f"{task_name}_x.npy")
-        y = np.load(dataset_dir / f"{task_name}_y.npy")
-        oracle_scaler.fit(y)
+        x_all = np.load(data_dir / f"{task_name}_x.npy")
+        y_all = np.load(data_dir / f"{task_name}_y.npy")
+        oracle_scaler.fit(y_all)
 
-        # Keep half of the designs with the smallest targets
-        half_size = len(y) // 2
-        index = y.squeeze(-1).argpartition(half_size)[:half_size]
-        x, y = x[index], y[index]
+        # Use the lower-scoring half of the designs as the offline dataset
+        half_size = len(y_all) // 2
+        half_index = y_all.squeeze(-1).argpartition(half_size)[:half_size]
+        x, y = x_all[half_index], y_all[half_index]
 
-        # Patch `task.predict` to use relabeled targets
-        text = (dataset_dir / f"{task_name}_oracle.txt").read_text()
-        oracle = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
+        # Patch `task.predict` to use the relabeled targets
+        text = (data_dir / f"{task_name}_oracle.txt").read_text()
+        targets = {k: float(v) for line in text.splitlines() for k, v in [line.split()]}
 
-        def predict(x: np.ndarray) -> np.ndarray:
-            x_char = np.array(["A", "C", "G", "T"])[x]
-            return np.array([[oracle["".join(xc)]] for xc in x_char])
+        def predict(x_pred: np.ndarray) -> np.ndarray:
+            x_char = np.array(["A", "C", "G", "T"])[x_pred]
+            return np.array([[targets["".join(xc)]] for xc in x_char])
 
         task.predict = predict
 
     else:
         x = task.x
-        y = np.load(dataset_dir / f"{task_name}_y.npy")
+        y = np.load(data_dir / f"{task_name}_y.npy")
 
         # Create a temporary task object to avoid mutating `task`
         tmp_task = design_bench.make(task_name)
@@ -57,7 +58,7 @@ def load_task_data(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMax
     return task, x, y, oracle_scaler
 
 
-def evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
+def select_evenly_spaced(y: np.ndarray, num_designs: int) -> np.ndarray:
     sorted_index = y.squeeze(-1).argsort()
     spaced_index = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
     return sorted_index[spaced_index]
@@ -73,8 +74,8 @@ def build_dataset(
 ) -> DatasetDict:
     assert stage in {"trace", "sft", "offline_rl", "online_rl"}
 
-    task, x, y, _ = load_task_data(task_name)
-    sample_index = evenly_spaced_indices(y, num_designs)
+    task, x, y, _ = prepare_task(task_name)
+    sample_index = select_evenly_spaced(y, num_designs)
     x_sample, y_sample = x[sample_index], y[sample_index]
 
     x_train, x_val, y_train, y_val = train_test_split(
@@ -93,23 +94,21 @@ def build_dataset(
         )
         return DatasetDict({"train": train_dataset, "validation": val_dataset})
 
-    # Normalize targets to keep reward scales consistent across tasks
+    # Normalize the targets to keep reward scales consistent across tasks
     scaler = MinMaxScaler()
     y_train_norm = scaler.fit_transform(y_train)
     y_val_norm = scaler.transform(y_val)
-
-    generate_trace = stage == "trace"
 
     if stage == "offline_rl":
         scale_reward = kwargs.pop("scale_reward")
 
     train_dataset = _build_offline_dataset(
         task_name, task, x_train, y_train, y_train_norm,
-        generate_trace, train_rng, **kwargs
+        stage == "trace", train_rng, **kwargs
     )
     val_dataset = _build_offline_dataset(
         task_name, task, x_val, y_val, y_val_norm,
-        generate_trace, val_rng, **kwargs
+        stage == "trace", val_rng, **kwargs
     )
 
     if stage in {"trace", "sft"}:
@@ -118,7 +117,7 @@ def build_dataset(
         val_dataset = val_dataset.filter(filter_fn).remove_columns("reward")
 
     elif scale_reward:
-        # Divide rewards by std
+        # Divide the rewards by the training-set standard deviation
         r_train_std = np.std(train_dataset["reward"]).item()
         assert r_train_std > 0
 
@@ -144,7 +143,7 @@ def _build_offline_dataset(
     num_shots: int,
     use_tools: bool
 ) -> Dataset:
-    # Partition the dataset into disjoint response and prompt subsets
+    # Partition the designs into disjoint response and prompt subsets
     perm_index = rng.permutation(len(x))
     x_perm, y_perm, y_norm_perm = x[perm_index], y[perm_index], y_norm[perm_index]
     response_size = int(len(x_perm) * response_ratio)
@@ -178,7 +177,7 @@ def _build_offline_dataset(
         if candidate_strategy == "random":
             cand_index = rng.choice(len(x_prompt), num_candidates, replace=False)
         elif candidate_strategy == "similarity":
-            # Retrieve candidates with the highest kernel-based similarity
+            # Select the candidates with the highest kernel-based similarity scores
             cand_index = similarity[i].argpartition(-num_candidates)[-num_candidates:]
         else:
             raise ValueError(f"Invalid candidate strategy: {candidate_strategy}")
@@ -186,7 +185,6 @@ def _build_offline_dataset(
         x_cand, y_cand, y_norm_cand = (
             x_prompt[cand_index], y_prompt[cand_index], y_norm_prompt[cand_index]
         )
-
         worse_index = np.where(y_norm_resp > y_norm_cand)[0]
 
         if len(worse_index) >= num_shots:
@@ -201,7 +199,7 @@ def _build_offline_dataset(
         )
         reward = (y_norm_resp - y_norm_ref.max()).item()
 
-        # Include different permutations of the references
+        # Include different permutations of the reference designs
         for _ in range(num_permutations):
             ref_perm_index = rng.permutation(len(x_ref))
             prompt, completion = prompt_fn(
@@ -209,13 +207,13 @@ def _build_offline_dataset(
                 x_resp, generate_trace
             )
 
-            example = {
+            examples.append({
                 "prompt": prompt,
                 "completion": completion,
                 "reward": reward,
-                "chat_template_kwargs": {"enable_thinking": generate_trace}
-            }
-            examples.append(example)
+                # TODO: Confirm the appropriate behavior for trace generation
+                "chat_template_kwargs": {"enable_thinking": False}
+            })
 
     return Dataset.from_list(examples)
 

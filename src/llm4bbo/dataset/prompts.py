@@ -7,16 +7,7 @@ then you continue reasoning.\
 """
 
 
-FINAL_ANSWER = """\
-Think step-by-step but concisely. \
-Do not repeat information already provided to you. \
-When giving your final answer, \
-you must wrap the design within <design></design> XML tags. \
-Answer only with the design and nothing else.\
-"""
-
-
-REASONING_TRACE = """\
+GENERATE_TRACE = """\
 Generate a concise reasoning trace that naturally leads to the target design below. \
 The target design is known to be better than all provided examples.
 
@@ -32,6 +23,15 @@ output exactly the target design and nothing else.\
 """
 
 
+GENERATE_DESIGN = """\
+Think step-by-step but concisely. \
+Do not repeat information already provided to you. \
+When giving your final answer, \
+you must wrap the design within <design></design> XML tags. \
+Answer only with the design and nothing else.\
+"""
+
+
 # TFBind8-Exact-v0 and TFBind10-Exact-v0
 TFBIND_TASK = """\
 You are an expert in DNA sequence design. \
@@ -41,7 +41,7 @@ that maximizes the binding score for the transcription factor {factor}.\
 """
 
 
-TFBIND_REFERENCES = """\
+TFBIND_REFERENCE = """\
 You are provided with example DNA sequences and their binding scores:
 
 {references}
@@ -92,7 +92,7 @@ p12, p13: Lengths of the thigh and ankle links.\
 """
 
 
-MORPHOLOGY_REFERENCES = """\
+MORPHOLOGY_REFERENCE = """\
 You are provided with example robot morphologies and their performance scores:
 
 {references}

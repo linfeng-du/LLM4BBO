@@ -19,14 +19,14 @@ from .typings import ColocateOutput, ServerOutput
 class GenerateWithTools(GenerateWithBudgets):
     def __init__(
         self,
-        generate_func: Callable,
+        generate_fn: Callable,
         tokenizer: PreTrainedTokenizerBase,
         tools: list[Callable],
         thinking_budget: int,
         answer_budget: int,
         max_tool_calling_iterations: int
     ) -> None:
-        super().__init__(generate_func, tokenizer, thinking_budget, answer_budget)
+        super().__init__(generate_fn, tokenizer, thinking_budget, answer_budget)
         self.tools = tools
         self.tool_dict = {tool.__name__: tool for tool in tools}
         self.max_tool_calling_iterations = max_tool_calling_iterations
@@ -35,19 +35,28 @@ class GenerateWithTools(GenerateWithBudgets):
         if self.tokenizer.response_schema is None:
             self.tokenizer = add_response_schema(self.tokenizer)
 
-    def __call__(self, prompts: list[ChatType], *args: Any, **kwargs: Any) -> (
-        ColocateOutput | ServerOutput
-    ):
+    def __call__(
+        self,
+        prompts: list[ChatType],
+        chat_template_kwargs: list[dict[str, Any]],
+        *args: Any,
+        **kwargs: Any
+    ) -> ColocateOutput | ServerOutput:
         prompt_ids = [
             self.tokenizer.apply_chat_template(
-                p, self.tools, add_generation_prompt=True, return_dict=False
+                p,
+                self.tools,
+                add_generation_prompt=True,
+                return_dict=False,
+                **ctk
             )
-            for p in prompts
+            for p, ctk in zip(prompts, chat_template_kwargs, strict=True)
         ]
 
-        if isinstance(self.generate_func.__self__, LLM):
+        if isinstance(self.generate_fn.__self__, LLM):
             prompt_ids = [{"prompt_token_ids": ids} for ids in prompt_ids]
 
+        # TODO: Check if `chat_template_kwargs` needs to be passed down
         return super().__call__(prompt_ids, *args, **kwargs)
 
     def _colocate_call(

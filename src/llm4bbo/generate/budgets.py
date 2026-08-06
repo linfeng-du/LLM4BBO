@@ -11,7 +11,7 @@ from vllm.logprobs import Logprob
 from .typings import ColocateOutput, ServerOutput
 
 
-STOP_THINKING_PROMPT = """
+STOP_THINKING = """
 
 Considering the limited time by the user, \
 I have to either make a tool call or give the final answer \
@@ -24,12 +24,12 @@ based on the thinking directly now.
 class GenerateWithBudgets:
     def __init__(
         self,
-        generate_func: Callable,
+        generate_fn: Callable,
         tokenizer: PreTrainedTokenizerBase,
         thinking_budget: int,
         answer_budget: int
     ) -> None:
-        self.generate_func = generate_func
+        self.generate_fn = generate_fn
         self.tokenizer = tokenizer
         self.thinking_budget = thinking_budget
         self.answer_budget = answer_budget
@@ -41,7 +41,7 @@ class GenerateWithBudgets:
         assert self.eoth_token_id != self.tokenizer.unk_token_id
 
         self.stop_thinking_ids = self.tokenizer.encode(
-            STOP_THINKING_PROMPT, add_special_tokens=False
+            STOP_THINKING, add_special_tokens=False
         )
         self.stop_thinking_tokens = [
             self.tokenizer.decode(i) for i in self.stop_thinking_ids
@@ -49,14 +49,14 @@ class GenerateWithBudgets:
         assert self.thinking_budget > len(self.stop_thinking_ids)
 
     def __call__(self, *args: Any, **kwargs: Any) -> ColocateOutput | ServerOutput:
-        if isinstance(self.generate_func.__self__, LLM):
+        if isinstance(self.generate_fn.__self__, LLM):
             return self._colocate_call(*args, **kwargs)
-        elif isinstance(self.generate_func.__self__, VLLMClient):
+        elif isinstance(self.generate_fn.__self__, VLLMClient):
             return self._server_call(*args, **kwargs)
         else:
             raise TypeError(
-                "Invalid type for `self.generate_func.__self__`: "
-                f"{type(self.generate_func.__self__)}"
+                "Invalid type for `self.generate_fn.__self__`: "
+                f"{type(self.generate_fn.__self__)}"
             )
 
     def _colocate_call(
@@ -69,27 +69,27 @@ class GenerateWithBudgets:
         assert not sampling_params.stop_token_ids
         assert sampling_params.max_tokens >= self.thinking_budget + self.answer_budget
 
-        # Stage 1: Generate thinking up to `self.thinking_budget` tokens
+        # Stage 1: Generate up to `self.thinking_budget` thinking tokens
         params = sampling_params.clone()
         params.stop = ["</think>\n\n"]
         params.max_tokens = self.thinking_budget - len(self.stop_thinking_ids)
         params.include_stop_str_in_output = True
 
-        requests = self.generate_func(prompts, params, **kwargs)
+        requests = self.generate_fn(prompts, params, **kwargs)
 
-        # Process stage 1 outputs
+        # Process the Stage 1 outputs
         new_prompts = []
         completions = []
 
         for request in requests:
             for completion in request.outputs:
                 if self.eos_token_id in completion.token_ids:
-                    # Model outputs EOS before </think>
+                    # The EOS token is emitted before `</think>`
                     continue
 
                 if self.eoth_token_id not in completion.token_ids:
-                    # Forcibly stop thinking
-                    completion.text += STOP_THINKING_PROMPT
+                    # Force thinking to stop
+                    completion.text += STOP_THINKING
                     completion.token_ids += self.stop_thinking_ids
 
                     if completion.logprobs is not None:
@@ -106,7 +106,8 @@ class GenerateWithBudgets:
                 new_prompts.append({"prompt_token_ids": new_prompt_ids})
                 completions.append(completion)
 
-        # Stage 2: Generate after thinking (skip when stage 1 already hits EOS)
+        # Stage 2: Generate up to `self.answer_budget` answer tokens
+        # (skip if EOS was already emitted in Stage 1)
         params = sampling_params.clone()
         params.n = 1
         params.max_tokens = self.answer_budget
@@ -114,9 +115,9 @@ class GenerateWithBudgets:
         new_requests = []
 
         if new_prompts:
-            new_requests = self.generate_func(new_prompts, params, **kwargs)
+            new_requests = self.generate_fn(new_prompts, params, **kwargs)
 
-        # Append stage 2 outputs to stage 1
+        # Merge the Stage 2 outputs into the Stage 1 outputs
         for completion, new_request in zip(completions, new_requests, strict=True):
             new_completion = new_request.outputs[0]
 
@@ -146,26 +147,26 @@ class GenerateWithBudgets:
         assert "stop_token_ids" not in kwargs["generation_kwargs"]
         assert "max_tokens" not in kwargs["generation_kwargs"]
 
-        # Stage 1: Generate thinking up to `self.thinking_budget` tokens
+        # Stage 1: Generate up to `self.thinking_budget` thinking tokens
         params = copy.deepcopy(kwargs)
         params["n"] = n
         params["max_tokens"] = self.thinking_budget - len(self.stop_thinking_ids)
         params["generation_kwargs"]["stop"] = ["</think>\n\n"]
 
-        outputs = self.generate_func(prompts, **params)
+        outputs = self.generate_fn(prompts, **params)
 
-        # Process stage 1 outputs
+        # Process the Stage 1 outputs
         new_prompts = []
         indices = []
 
-        for index in range(len(outputs["completion_ids"])):
-            if self.eos_token_id in outputs["completion_ids"][index]:
-                # Model outputs EOS before </think>
+        for index, completion_ids in enumerate(outputs["completion_ids"]):
+            if self.eos_token_id in completion_ids:
+                # The EOS token is emitted before `</think>`
                 continue
 
-            if self.eoth_token_id not in outputs["completion_ids"][index]:
-                # Forcibly stop thinking
-                outputs["completion_ids"][index] += self.stop_thinking_ids
+            if self.eoth_token_id not in completion_ids:
+                # Force thinking to stop
+                completion_ids += self.stop_thinking_ids
 
                 if outputs["logprobs"] is not None:
                     outputs["logprobs"][index] += [
@@ -177,13 +178,12 @@ class GenerateWithBudgets:
                         [i] for i in self.stop_thinking_ids
                     ]
 
-            new_prompt_ids = (
-                outputs["prompt_ids"][index // n] + outputs["completion_ids"][index]
-            )
+            new_prompt_ids = outputs["prompt_ids"][index // n] + completion_ids
             new_prompts.append(new_prompt_ids)
             indices.append(index)
 
-        # Stage 2: Generate after thinking (skip when stage 1 already hits EOS)
+        # Stage 2: Generate up to `self.answer_budget` answer tokens
+        # (skip if EOS was already emitted in Stage 1)
         params = copy.deepcopy(kwargs)
         params["n"] = 1
         params["max_tokens"] = self.answer_budget
@@ -191,9 +191,9 @@ class GenerateWithBudgets:
         new_outputs = {"completion_ids": [], "logprobs": [], "logprob_token_ids": []}
 
         if new_prompts:
-            new_outputs = self.generate_func(new_prompts, **params)
+            new_outputs = self.generate_fn(new_prompts, **params)
 
-        # Append stage 2 outputs to stage 1
+        # Merge the Stage 2 outputs into the Stage 1 outputs
         for new_index, index in enumerate(indices):
             outputs["completion_ids"][index] += new_outputs["completion_ids"][new_index]
 

@@ -24,12 +24,15 @@ class GenerateWithTools(GenerateWithBudgets):
         tools: list[Callable],
         thinking_budget: int,
         answer_budget: int,
-        max_tool_calling_iterations: int
+        max_tool_calling_iterations: int,
+        enable_thinking: bool = True
     ) -> None:
         super().__init__(generate_fn, tokenizer, thinking_budget, answer_budget)
         self.tools = tools
         self.tool_dict = {tool.__name__: tool for tool in tools}
         self.max_tool_calling_iterations = max_tool_calling_iterations
+        self.enable_thinking = enable_thinking
+
         self.chat_template = get_training_chat_template(self.tokenizer)
 
         if self.tokenizer.response_schema is None:
@@ -38,7 +41,6 @@ class GenerateWithTools(GenerateWithBudgets):
     def __call__(
         self,
         prompts: list[ChatType],
-        chat_template_kwargs: list[dict[str, Any]],
         *args: Any,
         **kwargs: Any
     ) -> ColocateOutput | ServerOutput:
@@ -46,17 +48,17 @@ class GenerateWithTools(GenerateWithBudgets):
             self.tokenizer.apply_chat_template(
                 p,
                 self.tools,
+                chat_template=self.chat_template,
                 add_generation_prompt=True,
                 return_dict=False,
-                **ctk
+                enable_thinking=self.enable_thinking
             )
-            for p, ctk in zip(prompts, chat_template_kwargs, strict=True)
+            for p in prompts
         ]
 
         if isinstance(self.generate_fn.__self__, LLM):
             prompt_ids = [{"prompt_token_ids": ids} for ids in prompt_ids]
 
-        # TODO: Check if `chat_template_kwargs` needs to be passed down
         return super().__call__(prompt_ids, *args, **kwargs)
 
     def _colocate_call(
@@ -237,13 +239,17 @@ class GenerateWithTools(GenerateWithBudgets):
         ]
 
         prefix_ids = self.tokenizer.apply_chat_template(
-            dummy_messages, chat_template=self.chat_template, return_dict=False
+            dummy_messages,
+            chat_template=self.chat_template,
+            return_dict=False,
+            enable_thinking=self.enable_thinking
         )
         full_ids = self.tokenizer.apply_chat_template(
             dummy_messages + tool_messages,
             chat_template=self.chat_template,
             add_generation_prompt=True,
-            return_dict=False
+            return_dict=False,
+            enable_thinking=self.enable_thinking
         )
 
         eos_positions = [i for i, p in enumerate(prefix_ids) if p == self.eos_token_id]

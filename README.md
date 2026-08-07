@@ -10,7 +10,7 @@ unzip mujoco200_linux.zip
 mv mujoco200_linux mujoco200
 ```
 
-Add the following lines to `~/.bashrc` to update the library path, then run `source ~/.bashrc`:
+Add the following lines to `~/.bashrc`, then run `source ~/.bashrc`:
 
 ```bash
 if [[ ! ":$LD_LIBRARY_PATH:" =~ ":$HOME/.mujoco/mujoco200/bin:" ]]; then
@@ -20,7 +20,7 @@ fi
 
 ## Environment Setup
 
-Create a virtual environment and install the package.
+Create a virtual environment, then install the package and its dependencies.
 
 ```bash
 virtualenv --no-download llm4bbo
@@ -30,7 +30,7 @@ pip install -e .
 pip install flash_attn_3 --find-links https://windreamer.github.io/flash-attention3-wheels/cu128_torch2110
 ```
 
-`mujoco_py` performs runtime compilation during its first import.
+Perform runtime compilation for `mujoco_py`.
 
 ```bash
 pip install 'cython<3'

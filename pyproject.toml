@@ -7,23 +7,24 @@ name = "llm4bbo"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "accelerate==1.13.0",
+    "accelerate==1.14.0",
     "bitsandbytes==0.49.2",
     "botorch==0.18.1",
-    "datasets==5.0.0",
+    "datasets==5.0.1",
     "design-bench==2.0.20",
     "fire==0.7.1",
     "gpytorch==1.15.2",
-    "hydra-core==1.3.2",
+    "hydra-core==1.3.5",
     "morphing-agents==1.5.1",
     "numpy==2.1.1",
-    "omegaconf==2.3.0",
-    "scikit-learn==1.8.0",
-    "torch==2.10.0",
-    "tqdm==4.68.2",
-    "trl==1.5.1",
-    "vllm==0.18.0",
-    "wandb==0.24.0"
+    "omegaconf==2.3.1",
+    "scikit-learn==1.9.0",
+    "torch==2.11.0",
+    "tqdm==4.70.0",
+    "transformers==5.14.1"
+    "trl==1.9.2",
+    "vllm==0.25.1",
+    "wandb==0.27.2"
 ]
 
 [tool.setuptools]

@@ -44,3 +44,27 @@ pip install gdown
 gdown 1OhhFUTiQCRb6pdyB1tqpy-qNKYbH1WFm
 unzip design_bench_data.zip -d $(python -c 'import site; print(site.getsitepackages()[0])')
 ```
+
+### Patch `trl vllm-serve` to use `spawn`
+
+Locate the `trl` console script.
+
+```bash
+which trl
+```
+
+Open the returned file and change its main content to:
+
+```python
+import multiprocessing as mp
+import re
+import sys
+if __name__ == '__main__':
+    mp.set_start_method('spawn', force=True)
+    from trl.cli import main
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(main())
+```
+
+This ensures that `trl vllm-serve` uses the `spawn` multiprocessing start method before importing TRL.
+

@@ -7,9 +7,9 @@ stage: sft
 build_dataset:
   stage: ${stage}
   num_designs: ${num_designs}
-  val_design_ratio: 0.2
+  val_ratio: 0.2
   seed: 42
-  enable_tools: ${enable_tools}
+  use_tools: ${use_tools}
   response_ratio: 0.5
   candidate_strategy: similarity
   num_candidates: 20

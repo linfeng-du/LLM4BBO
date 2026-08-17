@@ -1,6 +1,3 @@
-import os
-os.environ["USE_TF"] = "0"
-
 import gc
 import multiprocessing as mp
 
@@ -74,13 +71,14 @@ def main_online_rl(cfg: DictConfig) -> None:
     torch.cuda.empty_cache()
 
     if cfg.grpo_config.vllm_mode == "colocate":
-        ctx = mp.get_context(method="spawn")
-
         OmegaConf.resolve(cfg)
+
+        ctx = mp.get_context("spawn")
         results_queue = ctx.Queue()
 
         p = ctx.Process(target=evaluate, args=(cfg, results_queue))
         p.start()
+
         results = results_queue.get()
         p.join()
 

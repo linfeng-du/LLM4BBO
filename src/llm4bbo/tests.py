@@ -14,20 +14,23 @@ from llm4bbo.generate import GenerateWithTools
 from llm4bbo.gpr import create_tool
 
 
-def check_prompt(
+def check_dataset(
     task_name: str = "TFBind8-Exact-v0",
     stage: str = "trace",
     use_tools: bool = True
 ) -> None:
     dataset = _get_dataset(task_name, stage, use_tools)
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+    example = dataset[0]
 
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
     prompt = tokenizer.apply_chat_template(
         dataset[0]["prompt"],
         [create_tool(task_name)] if use_tools else None,
         add_generation_prompt=True,
         tokenize=False
     )
+
+    print(dataset[0])
     print(prompt)
 
 

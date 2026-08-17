@@ -1,3 +1,5 @@
+from importlib import resources
+
 from tqdm import tqdm
 
 import numpy as np
@@ -210,6 +212,20 @@ def train(task_name: str, num_designs: int, seed: int = 42):
         "spearman": spearmanr(y[val_index], y_pred)[0].item(),
     }
     print(results)
+
+    ckpt_dir = resources.files("llm4bbo") / "assets" / "gpr"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "train_x": x_train.cpu(),
+            "train_y": y_train.cpu(),
+            "state_dict": model.state_dict(),
+            "use_ard": False,
+            "use_outputscale": _uses_outputscale(model),
+            "noise_floor": 1e-4,
+        },
+        ckpt_dir / f"{task_name}.pt",
+    )
 
 
 num_designs = 500

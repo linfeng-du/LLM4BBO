@@ -10,9 +10,9 @@ answer_budget: 512
 build_dataset:
   stage: ${stage}
   num_designs: ${num_designs}
-  val_design_ratio: 0.2
+  val_ratio: 0.2
   seed: 42
-  enable_tools: ${enable_tools}
+  use_tools: ${use_tools}
   dataset_size: 1000
   num_shots: 10
 

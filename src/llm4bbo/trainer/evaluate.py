@@ -19,7 +19,7 @@ from llm4bbo.dataset import (
     create_prompt_fn,
     sample_evenly_spaced_designs
 )
-from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
+from llm4bbo.generate.budgets import GenerateWithBudgets
 from llm4bbo.trainer.utils import get_model, update_config
 
 
@@ -42,7 +42,7 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
 
     llm = LLM(model, gpu_memory_utilization=0.85)
     tokenizer = llm.get_tokenizer()
-    llm.generate = ThinkingBudgetVLLMGenerate(
+    llm.generate = GenerateWithBudgets(
         llm.generate, tokenizer, cfg.evaluate.thinking_budget
     )
 
@@ -52,7 +52,7 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
     for seed in range(cfg.evaluate.num_proposals):
         rng = np.random.default_rng(seed)
         indices = rng.choice(len(x), cfg.evaluate.num_shots, replace=False)
-        chat_prompts.append(prompt_fn(x[indices], y[indices]))
+        chat_prompts.append(prompt_fn(x[indices], y[indices], use_tools=cfg.use_tools))
 
     prompt_ids = tokenizer.apply_chat_template(chat_prompts, add_generation_prompt=True)
     prompts = [{"prompt_token_ids": ids} for ids in prompt_ids]

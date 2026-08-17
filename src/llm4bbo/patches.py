@@ -13,7 +13,6 @@ def _silence_excessive_logs() -> None:
     logging.getLogger().addFilter(_RobelMujocoFilter())
     warnings.filterwarnings("ignore", module=r"gym")
     warnings.filterwarnings("ignore", message=r"pkg_resources is deprecated")
-    warnings.filterwarnings("ignore", message=r"TRL currently supports vLLM versions")
 
 
 class _RobelMujocoFilter(logging.Filter):

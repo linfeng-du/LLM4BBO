@@ -1,6 +1,3 @@
-import os
-os.environ["USE_TF"] = "0"
-
 import gc
 
 import hydra

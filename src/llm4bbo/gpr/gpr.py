@@ -19,11 +19,11 @@ from transformers.pipelines.text_generation import ChatType
 from llm4bbo.dataset import create_parse_fn
 
 
-def create_tool(task_name: str) -> Callable[[str], dict[str, str]]:
+def create_tool(task_name: str) -> Callable:
     surrogate = GPRSurrogate(task_name)
     parse_fn = create_parse_fn(task_name)
 
-    def predict_score(x: list[str]) -> tuple[float, float]:
+    def predict_score(x: str) -> tuple[float, float]:
         """
         Predict the score and uncertainty of a design.
 
@@ -33,7 +33,9 @@ def create_tool(task_name: str) -> Callable[[str], dict[str, str]]:
         Returns:
             The predicted score and uncertainty.
         """
-        x = parse_fn([x])
+        parsed_x = parse_fn([x])
+
+        x = torch.from_numpy(parse_fn([x])).to(surrogate.model.train_inputs[0])
 
         with torch.no_grad():
             posterior = surrogate.model.posterior(x.unsqueeze(-2))
@@ -68,7 +70,7 @@ class GPRSurrogate:
         self.task_name = task_name
         self.task = design_bench.make(task_name)
 
-        ckpt_path = resources.files("llm4bbo") / "assets" / "models" / f"{task_name}.pt"
+        ckpt_path = resources.files("llm4bbo") / "assets" / "gpr" / f"{task_name}.pt"
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ckpt = torch.load(ckpt_path, device)
 

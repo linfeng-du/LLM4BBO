@@ -83,7 +83,7 @@ class OfflineRLTrainer(SFTTrainer):
             model, inputs, return_outputs=True, num_items_in_batch=num_items_in_batch
         )
 
-        # https://github.com/huggingface/transformers/blob/v4.57.6/src/transformers/trainer_pt_utils.py#L553
+        # https://github.com/huggingface/transformers/blob/v5.15.0/src/transformers/trainer_pt_utils.py#L452
         logits = outputs.logits[..., :-1, :].contiguous()
         labels = inputs["labels"][..., 1:].contiguous()
 

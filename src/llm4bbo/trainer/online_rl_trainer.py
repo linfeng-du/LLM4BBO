@@ -92,7 +92,7 @@ def thinking_budget_rollout_func(
     prompts: list[ChatType],
     trainer: GRPOTrainer
 ) -> dict[str, list[list[int]] | list[list[float]]]:
-    # https://github.com/huggingface/trl/blob/v0.29.1/trl/trainer/grpo_trainer.py#L1572
+    # https://github.com/huggingface/trl/blob/v1.10.0/trl/trainer/grpo_trainer.py#L2241
     prompt_ids, images, multimodal_fields = trainer._tokenize_prompts(prompts)
     completion_ids, logprobs, _ = trainer._generate_single_turn(
         prompt_ids, images, multimodal_fields

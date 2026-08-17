@@ -193,10 +193,11 @@ class GenerateWithTools(GenerateWithBudgets):
 
         return outputs
 
-    def _execute_tool_calls(self, tool_calls: list[dict[str, Any]]) -> (
-        list[dict[str, Any]]
-    ):
-        # https://github.com/huggingface/trl/blob/v1.5.1/trl/trainer/grpo_trainer.py#L1514
+    def _execute_tool_calls(
+        self,
+        tool_calls: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        # https://github.com/huggingface/trl/blob/v1.10.0/trl/trainer/grpo_trainer.py#L2003
         tool_call_results = []
 
         for tool_call in tool_calls:
@@ -225,7 +226,7 @@ class GenerateWithTools(GenerateWithBudgets):
             for name, result in tool_call_results
         ]
 
-    # https://github.com/huggingface/trl/blob/v1.5.1/trl/trainer/grpo_trainer.py#L1433
+    # https://github.com/huggingface/trl/blob/v1.10.0/trl/trainer/grpo_trainer.py#L1922
     def _get_tool_suffix_ids(self, tool_messages: list[dict[str, Any]]) -> list[int]:
         dummy_tool_calls = [
             {

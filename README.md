@@ -27,7 +27,7 @@ virtualenv --no-download llm4bbo
 source llm4bbo/bin/activate
 python -m pip install 'pip<24.1'
 pip install -e .
-pip install flash_attn_3 --find-links https://windreamer.github.io/flash-attention3-wheels/cu128_torch2110
+pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn_3-3.0.0+cu128torch2.11gite2743ab-cp39-abi3-linux_x86_64.whl
 ```
 
 Perform runtime compilation for `mujoco_py`.

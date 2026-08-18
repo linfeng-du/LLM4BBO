@@ -35,7 +35,7 @@ class GenerateWithTools(GenerateWithBudgets):
 
         self.chat_template = get_training_chat_template(self.tokenizer)
 
-        if self.tokenizer.response_schema is None:
+        if self.tokenizer.response_template is None:
             self.tokenizer = add_response_schema(self.tokenizer)
 
     def __call__(

@@ -17,7 +17,8 @@ from vllm import LLM, SamplingParams
 from llm4bbo.dataset import (
     create_parse_fn,
     create_prompt_fn,
-    sample_evenly_spaced_designs
+    prepare_task,
+    select_evenly_spaced
 )
 from llm4bbo.generate.budgets import GenerateWithBudgets
 from llm4bbo.trainer.utils import get_model, update_config
@@ -31,9 +32,9 @@ def main(cfg: DictConfig) -> None:
 
 
 def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> None:
-    task, x, y, oracle_scaler = sample_evenly_spaced_designs(
-        cfg.task_name, cfg.num_designs
-    )
+    task, x, y, oracle_scaler = prepare_task(cfg.task_name)
+    sample_index = select_evenly_spaced(y, cfg.num_designs)
+    x_sample, y_sample = x[sample_index], y[sample_index]
 
     if cfg.stage == "base":
         model = cfg.llm.model
@@ -41,9 +42,13 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
         model = get_model(cfg.output_dir)
 
     llm = LLM(model, gpu_memory_utilization=0.85)
+
     tokenizer = llm.get_tokenizer()
     llm.generate = GenerateWithBudgets(
-        llm.generate, tokenizer, cfg.evaluate.thinking_budget
+        llm.generate,
+        tokenizer,
+        cfg.evaluate.thinking_budget,
+        cfg.evaluate.answer_budget
     )
 
     chat_prompts = []
@@ -51,8 +56,10 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
 
     for seed in range(cfg.evaluate.num_proposals):
         rng = np.random.default_rng(seed)
-        indices = rng.choice(len(x), cfg.evaluate.num_shots, replace=False)
-        chat_prompts.append(prompt_fn(x[indices], y[indices], use_tools=cfg.use_tools))
+        indices = rng.choice(len(x_sample), cfg.evaluate.num_shots, replace=False)
+        chat_prompts.append(
+            prompt_fn(x_sample[indices], y_sample[indices], use_tools=cfg.use_tools)
+        )
 
     prompt_ids = tokenizer.apply_chat_template(chat_prompts, add_generation_prompt=True)
     prompts = [{"prompt_token_ids": ids} for ids in prompt_ids]

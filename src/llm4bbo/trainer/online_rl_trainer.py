@@ -13,9 +13,9 @@ from transformers.pipelines.text_generation import ChatType
 from trl import GRPOConfig, GRPOTrainer
 
 from llm4bbo.dataset import build_dataset
-from llm4bbo.gaussian_process import create_gaussian_process_reward
+from llm4bbo.generate import GenerateWithBudgets
+from llm4bbo.gpr import create_reward
 from llm4bbo.trainer.evaluate import evaluate
-from llm4bbo.trainer.thinking_budget import ThinkingBudgetVLLMGenerate
 from llm4bbo.trainer.utils import get_best_model, update_config
 
 
@@ -41,7 +41,7 @@ def main_online_rl(cfg: DictConfig) -> None:
 
     trainer = GRPOTrainer(
         model,
-        reward_funcs=[create_gaussian_process_reward(cfg.task_name)],
+        reward_funcs=[create_reward(cfg.task_name)],
         args=GRPOConfig(**OmegaConf.to_container(cfg.grpo_config, resolve=True)),
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
@@ -50,14 +50,14 @@ def main_online_rl(cfg: DictConfig) -> None:
     )
 
     if cfg.grpo_config.vllm_mode == "server":
-        trainer.vllm_generation.vllm_client.generate = ThinkingBudgetVLLMGenerate(
+        trainer.vllm_generation.vllm_client.generate = GenerateWithBudgets(
             trainer.vllm_generation.vllm_client.generate,
             tokenizer,
             cfg.thinking_budget,
             cfg.answer_budget
         )
     elif cfg.grpo_config.vllm_mode == "colocate":
-        trainer.vllm_generation.llm.generate = ThinkingBudgetVLLMGenerate(
+        trainer.vllm_generation.llm.generate = GenerateWithBudgets(
             trainer.vllm_generation.llm.generate,
             tokenizer,
             cfg.thinking_budget,

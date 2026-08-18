@@ -20,9 +20,8 @@ def check_dataset(
     use_tools: bool = True
 ) -> None:
     dataset = _get_dataset(task_name, stage, use_tools)
-    example = dataset[0]
-
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+
     prompt = tokenizer.apply_chat_template(
         dataset[0]["prompt"],
         [create_tool(task_name)] if use_tools else None,
@@ -37,13 +36,12 @@ def check_dataset(
 def generate_colocate(
     task_name: str = "TFBind8-Exact-v0",
     stage: str = "trace",
-    use_tools: bool = True,
     model: str = "Qwen/Qwen3-4B",
     thinking_budget: int = 512,
     answer_budget: int = 1024,
     max_tool_calling_iterations: int = 3
 ) -> None:
-    dataset = _get_dataset(task_name, stage, use_tools)
+    dataset = _get_dataset(task_name, stage, use_tools=True)
 
     llm = LLM(model, gpu_memory_utilization=0.85)
     tokenizer = llm.get_tokenizer()
@@ -65,11 +63,7 @@ def generate_colocate(
         logprobs=0
     )
 
-    requests = llm.generate(
-        [dataset[0]["prompt"]],
-        [dataset[0]["chat_template_kwargs"]],
-        sampling_params
-    )
+    requests = llm.generate([dataset[0]["prompt"]], sampling_params)
     print(requests[0].outputs[0].text)
 
 
@@ -80,7 +74,8 @@ def generate_server(
     model: str = "Qwen/Qwen3-4B",
     thinking_budget: int = 4096,
     answer_budget: int = 1024,
-    max_tool_calling_iterations: int = 3
+    max_tool_calling_iterations: int = 3,
+    enable_thinking: bool = True
 ) -> None:
     dataset = _get_dataset(task_name, stage, use_tools=True)
 
@@ -93,7 +88,8 @@ def generate_server(
         [create_tool(task_name)],
         thinking_budget,
         answer_budget,
-        max_tool_calling_iterations
+        max_tool_calling_iterations,
+        enable_thinking
     )
 
     kwargs = {
@@ -104,11 +100,7 @@ def generate_server(
         "logprobs": 0
     }
 
-    outputs = client.generate(
-        [dataset[0]["prompt"]],
-        [dataset[0]["chat_template_kwargs"]],
-        **kwargs
-    )
+    outputs = client.generate([dataset[0]["prompt"]], **kwargs)
     print(tokenizer.decode(outputs["completion_ids"][0]))
 
 

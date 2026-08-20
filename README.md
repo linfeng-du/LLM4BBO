@@ -25,7 +25,7 @@ Create a virtual environment, then install the package and its dependencies.
 ```bash
 virtualenv --no-download llm4bbo
 source llm4bbo/bin/activate
-python -m pip install 'pip<24.1'
+pip install 'pip<24.1'
 pip install -e .
 pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn_3-3.0.0+cu128torch2.11gite2743ab-cp39-abi3-linux_x86_64.whl
 ```
@@ -42,7 +42,7 @@ Download [`design_bench_data`](https://drive.google.com/file/d/1OhhFUTiQCRb6pdyB
 ```bash
 pip install gdown
 gdown 1OhhFUTiQCRb6pdyB1tqpy-qNKYbH1WFm
-unzip design_bench_data.zip -d $(python -c 'import site; print(site.getsitepackages()[0])')
+unzip design_bench_data.zip -d "$(python -c 'import site; print(site.getsitepackages()[0])')"
 ```
 
 ### Patch `trl vllm-serve` to use `spawn`
@@ -67,4 +67,3 @@ if __name__ == '__main__':
 ```
 
 This ensures that `trl vllm-serve` uses the `spawn` multiprocessing start method before importing TRL.
-

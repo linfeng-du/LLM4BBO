@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial
 from importlib import resources
-from typing import Any
+from typing import Any, Literal
 
 from tqdm import tqdm
 
@@ -20,50 +20,15 @@ from sklearn.preprocessing import MinMaxScaler
 from .codec import create_prompt_fn
 
 
-def prepare_task(task_name: str) -> tuple[Task, np.ndarray, np.ndarray, MinMaxScaler]:
-    task = design_bench.make(task_name)
-
-    # Fit on all available targets so outputs from `task.predict`
-    # can later be normalized using the task's full target range
-    oracle_scaler = MinMaxScaler()
-    data_dir = resources.files("llm4bbo") / "assets" / "data"
-
-    if task_name == "TFBind10-Exact-v0":
-        x_all = np.load(data_dir / f"{task_name}_x.npy")
-        y_all = np.load(data_dir / f"{task_name}_y.npy")
-        oracle_scaler.fit(y_all)
-
-        # Use the lower-scoring half of the designs as the offline dataset
-        half_size = len(y_all) // 2
-        half_index = y_all.squeeze(-1).argpartition(half_size)[:half_size]
-        x, y = x_all[half_index], y_all[half_index]
-
-        # Patch `task.predict` to use the relabeled targets
-        text = (data_dir / f"{task_name}_oracle.txt").read_text()
-        targets = {k: float(v) for l in text.splitlines() for k, v in [l.split()]}
-
-        def predict(x_pred: np.ndarray) -> np.ndarray:
-            x_char = np.array(["A", "C", "G", "T"])[x_pred]
-            return np.array([[targets["".join(xc)]] for xc in x_char])
-
-        task.predict = predict
-
-    else:
-        x = task.x
-        y = np.load(data_dir / f"{task_name}_y.npy")
-
-        # Create a temporary task object to avoid mutating `task`
-        tmp_task = design_bench.make(task_name)
-        tmp_task.dataset.subsample()
-        oracle_scaler.fit(tmp_task.dataset.y)
-
-    return task, x, y, oracle_scaler
-
-
-def select_evenly_spaced(y: np.ndarray, num_designs: int) -> np.ndarray:
-    sorted_index = y.squeeze(-1).argsort()
-    spaced_index = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
-    return sorted_index[spaced_index]
+def build_trace_dataset(
+    task_name: str,
+    use_tools: bool,
+    num_designs: int,
+    val_ratio: float,
+    candidate_strategy: Literal["similarity", "random"],
+    seed: int
+) -> DatasetDict:
+    task = BenchmarkTask(task_name)
 
 
 def build_dataset(
@@ -80,13 +45,13 @@ def build_dataset(
     assert stage in {"trace", "sft", "offline_rl", "online_rl"}
     assert stage == "online_rl" or candidate_strategy in {"similarity", "random"}
 
-    task, x, y, _ = prepare_task(task_name)
-    sample_index = select_evenly_spaced(y, num_designs)
-    x_sample, y_sample = x[sample_index], y[sample_index]
+    task, x_offline, y_offline, _ = prepare_task(task_name)
+    sample_index = select_evenly_spaced(y_offline, num_designs)
+    x, y = x_offline[sample_index], y_offline[sample_index]
 
     x_train, x_val, y_train, y_val = train_test_split(
-        x_sample,
-        y_sample,
+        x,
+        y,
         test_size=val_ratio,
         random_state=seed
     )
@@ -169,22 +134,20 @@ def _build_offline_dataset(
     x: np.ndarray,
     y: np.ndarray,
     y_norm: np.ndarray,
-    similarity_fn: Callable | None,
-    prompt_fn: Callable,
-    rng: np.random.Generator,
     response_ratio: float,
     num_candidates: int,
     num_permutations: int,
-    num_shots: int
+    num_shots: int,
+    similarity_fn: Callable | None,
+    prompt_fn: Callable,
+    rng: np.random.Generator
 ) -> Dataset:
     # Partition the designs into disjoint response and prompt subsets
     perm_index = rng.permutation(len(x))
     x_perm, y_perm, y_norm_perm = x[perm_index], y[perm_index], y_norm[perm_index]
     response_size = int(len(x_perm) * response_ratio)
 
-    x_response, y_norm_response = (
-        x_perm[:response_size], y_norm_perm[:response_size]
-    )
+    x_response, y_norm_response = x_perm[:response_size], y_norm_perm[:response_size]
     x_prompt, y_prompt, y_norm_prompt = (
         x_perm[response_size:], y_perm[response_size:], y_norm_perm[response_size:]
     )
@@ -240,10 +203,10 @@ def _build_offline_dataset(
 def _build_online_dataset(
     x: np.ndarray,
     y: np.ndarray,
-    prompt_fn: Callable,
-    rng: np.random.Generator,
     dataset_size: int,
-    num_shots: int
+    num_shots: int,
+    prompt_fn: Callable,
+    rng: np.random.Generator
 ) -> Dataset:
     examples = []
 
@@ -252,7 +215,7 @@ def _build_online_dataset(
         x_ref, y_ref = x[ref_index], y[ref_index]
 
         prompt = prompt_fn(x_ref, y_ref)
-        best_f = y_ref.max().item()
-        examples.append({"prompt": prompt, "best_f": best_f})
+        best_y = y_ref.max().item()
+        examples.append({"prompt": prompt, "best_y": best_y})
 
     return Dataset.from_list(examples)

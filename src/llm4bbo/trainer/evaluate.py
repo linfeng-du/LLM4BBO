@@ -32,9 +32,9 @@ def main(cfg: DictConfig) -> None:
 
 
 def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> None:
-    task, x, y, oracle_scaler = prepare_task(cfg.task_name)
-    sample_index = select_evenly_spaced(y, cfg.num_designs)
-    x_sample, y_sample = x[sample_index], y[sample_index]
+    task, x_offline, y_offline, oracle_scaler = prepare_task(cfg.task_name)
+    sample_index = select_evenly_spaced(y_offline, cfg.num_designs)
+    x, y = x_offline[sample_index], y_offline[sample_index]
 
     if cfg.stage == "base":
         model = cfg.llm.model
@@ -56,10 +56,8 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
 
     for seed in range(cfg.evaluate.num_proposals):
         rng = np.random.default_rng(seed)
-        indices = rng.choice(len(x_sample), cfg.evaluate.num_shots, replace=False)
-        chat_prompts.append(
-            prompt_fn(x_sample[indices], y_sample[indices], use_tools=cfg.use_tools)
-        )
+        indices = rng.choice(len(x), cfg.evaluate.num_shots, replace=False)
+        chat_prompts.append(prompt_fn(x[indices], y[indices], use_tools=cfg.use_tools))
 
     prompt_ids = tokenizer.apply_chat_template(chat_prompts, add_generation_prompt=True)
     prompts = [{"prompt_token_ids": ids} for ids in prompt_ids]
@@ -74,7 +72,7 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
         oracle_scaler.transform(task.predict(x_pred))
         .reshape(cfg.evaluate.num_trials, cfg.evaluate.num_proposals, order="F")
     )
-    y_pred_max = y_pred.max(axis=-1)
+    y_pred_max = y_pred.max(-1)
     y_pred_median = np.median(y_pred, axis=-1)
 
     results = {
@@ -92,7 +90,7 @@ def evaluate(cfg: DictConfig, results_queue: mp.queues.Queue | None = None) -> N
     best_conversations = []
     table_data = []
 
-    for trial_index, proposal_index in enumerate(y_pred.argmax(axis=-1)):
+    for trial_index, proposal_index in enumerate(y_pred.argmax(-1)):
         chat_prompt = chat_prompts[proposal_index]
         completion = completions[proposal_index * cfg.evaluate.num_trials + trial_index]
 

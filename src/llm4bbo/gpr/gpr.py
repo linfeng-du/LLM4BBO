@@ -33,6 +33,7 @@ def create_tool(task_name: str) -> Callable:
         Returns:
             The predicted score and uncertainty.
         """
+        
         parsed_x = parse_fn([x])
 
         x = torch.from_numpy(parse_fn([x])).to(surrogate.model.train_inputs[0])

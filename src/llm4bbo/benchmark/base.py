@@ -1,67 +1,58 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from importlib import resources
+from pathlib import Path
 
 import numpy as np
 from transformers.pipelines.text_generation import ChatType
 
 
-DATA_DIR = resources.files("llm4bbo") / "assets" / "data"
+ASSETS_DIR = resources.files("llm4bbo") / "assets"
 
 
 class BenchmarkTask(ABC):
-    def __init__(
-        self,
-        task_name: str,
-        design_dim: int,
-        num_designs: int,
-        x_offline: np.ndarray,
-        y_offline: np.ndarray,
-        system_prompt: str,
-        user_prompt: str
-    ) -> None:
-        if x_offline.shape != (len(x_offline), design_dim):
+    benchmark: str
+    task: str
+    design_dim: int
+    num_designs: int
+    system_prompt: str
+    user_prompt: str
+
+    def __init__(self, x_offline: np.ndarray) -> None:
+        if x_offline.shape != (len(x_offline), self.design_dim):
             raise ValueError(
                 "x_offline must have shape "
-                f"(n, {design_dim}), got {x_offline.shape}"
+                f"({len(x_offline)}, {self.design_dim}), got {x_offline.shape}"
             )
 
-        if y_offline.shape != (len(y_offline), 1):
-            raise ValueError(f"y_offline must have shape (n, 1), got {y_offline.shape}")
-
-        if len(x_offline) != len(y_offline):
-            raise ValueError("x_offline and y_offline must have equal lengths")
-
-        if not 0 < num_designs <= len(x_offline):
+        if not 0 < self.num_designs <= len(x_offline):
             raise ValueError(f"num_designs must be in [1, {len(x_offline)}]")
 
-        self.task_name = task_name
-        self.design_dim = design_dim
-        self.num_designs = num_designs
-
         self.x_offline = x_offline
-        self.y_offline = y_offline
+        self.y_offline = self.predict(
+            self.x_offline,
+            cache_path=self.data_dir / f"{self.task}_y_offline.npy"
+        )
 
-        self.system_prompt = system_prompt
-        self.user_prompt = user_prompt
-
-        self.selected_indices = self._select_evenly_spaced_indices()
+        self.selected_indices = _select_evenly_spaced_indices(
+            self.y_offline,
+            self.num_designs
+        )
         self.x = self.x_offline[self.selected_indices]
         self.y = self.y_offline[self.selected_indices]
 
-    def _select_evenly_spaced_indices(self) -> np.ndarray:
-        sorted_index = self.y_offline.squeeze(-1).argsort()
-        spaced_index = (
-            np.linspace(0, len(self.y_offline) - 1, self.num_designs)
-            .round()
-            .astype(int)
-        )
-        return sorted_index[spaced_index]
+    @property
+    def benchmark_dir(self) -> Path:
+        return ASSETS_DIR / self.benchmark
+
+    @property
+    def data_dir(self) -> Path:
+        return self.benchmark_dir / "data"
 
     def create_prompt_messages(
         self,
-        xs: np.ndarray,
-        ys: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         use_tool: bool,
         max_tool_calls: int | None = None,
         generate_trace: bool = False,
@@ -71,9 +62,7 @@ class BenchmarkTask(ABC):
 
         if use_tool:
             if max_tool_calls is None or max_tool_calls <= 0:
-                raise ValueError(
-                    "max_tool_calls must be a positive integer when use_tool=True"
-                )
+                raise ValueError("max_tool_calls must be positive when use_tool=True")
 
             system_parts.append(TOOL_USE_PROMPT.format(max_tool_calls=max_tool_calls))
 
@@ -87,8 +76,8 @@ class BenchmarkTask(ABC):
         system_parts.append(FINAL_INSTRUCTION)
 
         references = "\n".join(
-            self.render_example(x, y)
-            for x, y in zip(xs, ys, strict=True)
+            self.render_example(x_, y_)
+            for x_, y_ in zip(x, y, strict=True)
         )
 
         system_prompt = "\n\n".join(system_parts)
@@ -109,9 +98,28 @@ class BenchmarkTask(ABC):
         if not completions:
             raise ValueError("completions must not be empty")
 
-        results = [self.parse_completion(c) for c in completions]
-        designs, valids = zip(*results, strict=True)
-        return np.array(designs), np.array(valids)
+        results = [self._parse_completion(c) for c in completions]
+        designs, valid_flags = zip(*results, strict=True)
+        return np.array(designs), np.array(valid_flags)
+
+    def predict(self, x: np.ndarray, cache_path: Path | None = None) -> np.ndarray:
+        if cache_path is not None and cache_path.exists():
+            y = np.load(cache_path)
+
+            if y.shape != (len(x), 1):
+                raise ValueError(
+                    f"Cache file {cache_path} must have shape "
+                    f"({len(x)}, 1), got {y.shape}"
+                )
+
+            return y
+
+        y = self._predict(x)
+
+        if cache_path is not None:
+            np.save(cache_path, y)
+
+        return y
 
     @abstractmethod
     def render_design(self, x: np.ndarray) -> str:
@@ -122,28 +130,37 @@ class BenchmarkTask(ABC):
         ...
 
     @abstractmethod
-    def parse_completion(self, completion: str) -> tuple[list[int] | list[float], bool]:
+    def _parse_completion(
+        self,
+        completion: str
+    ) -> tuple[list[int] | list[float], bool]:
         ...
 
     @abstractmethod
-    def predict(self, xs: np.ndarray) -> np.ndarray:
+    def _predict(self, x: np.ndarray) -> np.ndarray:
         ...
+
+
+def _select_evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
+    sorted_indices = y.squeeze(-1).argsort()
+    spaced_indices = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
+    return sorted_indices[spaced_indices]
 
 
 REGISTRY: dict[str, type[BenchmarkTask]] = {}
 
 
-def make_task(task_name: str, num_designs: int) -> BenchmarkTask:
-    return REGISTRY[task_name](task_name, num_designs)
+def make_task(task: str, num_designs: int) -> BenchmarkTask:
+    return REGISTRY[task](task, num_designs)
 
 
-def register_tasks(*task_names: str) -> Callable:
+def register_tasks(*tasks: str) -> Callable:
     def decorator(cls: type[BenchmarkTask]) -> type[BenchmarkTask]:
-        for name in task_names:
-            if name in REGISTRY:
-                raise ValueError(f"Duplicate task registration: {name}")
+        for task in tasks:
+            if task in REGISTRY:
+                raise ValueError(f"Task already registered: {task}")
 
-            REGISTRY[name] = cls
+            REGISTRY[task] = cls
 
         return cls
 

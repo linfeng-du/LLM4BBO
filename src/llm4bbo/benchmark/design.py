@@ -1,5 +1,6 @@
 import ast
 import re
+from pathlib import Path
 
 import llm4bbo.patches
 
@@ -9,10 +10,10 @@ from design_bench.task import Task
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
-from .base import BenchmarkTask, DATA_DIR, register_tasks
+from .base import BenchmarkTask, register_tasks
 
 
-TASKS = {
+TASK_SPECS = {
     "tf8": ("TFBind8-Exact-v0", 8),
     "tf10": ("TFBind10-Exact-v0", 10),
     "ant": ("AntMorphology-Exact-v0", 60),
@@ -20,93 +21,104 @@ TASKS = {
 }
 
 
-@register_tasks(*TASKS)
+@register_tasks(*TASK_SPECS)
 class DesignBenchTask(BenchmarkTask):
-    def __init__(self, task_name: str, num_designs: int) -> None:
-        task_name, design_dim = TASKS[task_name]
-        self._task, x_offline, y_offline, y_all = _prepare_task_and_data(task_name)
-        system_prompt, user_prompt = _prepare_prompts(task_name, design_dim)
+    benchmark: str = "design_bench"
 
-        super().__init__(
-            task_name,
-            design_dim,
-            num_designs,
-            x_offline,
-            y_offline,
-            system_prompt,
-            user_prompt
+    def __init__(self, task: str, num_designs: int) -> None:
+        self.task, self.design_dim = TASK_SPECS[task]
+        self.num_designs = num_designs
+
+        self.system_prompt, self.user_prompt = _prepare_prompts(
+            self.task,
+            self.design_dim
         )
 
+        self._design_bench_task, x_offline, x_all = _prepare_task_and_designs(
+            self.task,
+            self.data_dir
+        )
+
+        if self.task == "TFBind10-Exact-v0":
+            self.tfbind10_oracle = _load_tfbind10_oracle(self.data_dir)
+
+        super().__init__(x_offline)
+
+        y_all = self.predict(x_all, cache_path=self.data_dir / f"{self.task}_y.npy")
         self.oracle_scaler = MinMaxScaler().fit(y_all)
 
-        if self.task_name == "TFBind10-Exact-v0":
-            self.targets = _load_tfbind10_targets()
-
     def render_design(self, x: np.ndarray) -> str:
-        match self.task_name:
+        match self.task:
             case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
                 return _render_tfbind_design(x)
             case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
                 return _render_morphology_design(x)
             case _:
-                raise ValueError(f"Invalid task: {self.task_name}")
+                raise ValueError(f"Invalid task: {self.task}")
 
     def render_example(self, x: np.ndarray, y: np.ndarray) -> str:
-        match self.task_name:
+        match self.task:
             case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
                 return _render_tfbind_example(x, y)
             case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
                 return _render_morphology_example(x, y)
             case _:
-                raise ValueError(f"Invalid task: {self.task_name}")
+                raise ValueError(f"Invalid task: {self.task}")
 
-    def parse_completion(self, completion: str) -> tuple[list[int] | list[float], bool]:
-        match self.task_name:
+    def _parse_completion(
+        self,
+        completion: str
+    ) -> tuple[list[int] | list[float], bool]:
+        match self.task:
             case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
                 return _parse_tfbind_completion(completion, self.design_dim)
             case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
                 return _parse_morphology_completion(completion, self.design_dim)
             case _:
-                raise ValueError(f"Invalid task: {self.task_name}")
+                raise ValueError(f"Invalid task: {self.task}")
 
-    def predict(self, xs: np.ndarray) -> np.ndarray:
-        if self.task_name == "TFBind10-Exact-v0":
-            x_chars = np.array(["A", "C", "G", "T"])[xs]
-            return np.array([[self.targets["".join(xc)]] for xc in x_chars])
+    def _predict(self, x: np.ndarray) -> np.ndarray:
+        if self.task == "TFBind10-Exact-v0":
+            x_char = np.array(["A", "C", "G", "T"])[x]
+            return np.array([[self.tfbind10_oracle["".join(xc)]] for xc in x_char])
 
-        return self._task.predict(xs)
-
-
-def _prepare_task_and_data(
-    task_name: str
-) -> tuple[Task, np.ndarray, np.ndarray, np.ndarray]:
-    task = design_bench.make(task_name)
-
-    if task_name == "TFBind10-Exact-v0":
-        x_all = np.load(DATA_DIR / f"{task_name}_x.npy")
-        y_all = np.load(DATA_DIR / f"{task_name}_y.npy")
-
-        # Use the lower-scoring half of the designs as the offline dataset
-        half_size = len(y_all) // 2
-        half_index = y_all.squeeze(-1).argpartition(half_size)[:half_size]
-        x_offline, y_offline = x_all[half_index], y_all[half_index]
-
-        return task, x_offline, y_offline, y_all
-
-    x_offline = task.x
-
-    # Create a temporary task object to avoid mutating `task`
-    tmp_task = design_bench.make(task_name)
-    tmp_task.dataset.subsample()
-    y_all = tmp_task.y
-
-    return task, x_offline, y_offline, y_all
+        return self._design_bench_task.predict(x)
 
 
-def _prepare_prompts(task_name: str, design_dim: int) -> tuple[str, str]:
-    match task_name:
+def _prepare_task_and_designs(
+    task: str,
+    data_dir: Path
+) -> tuple[Task, np.ndarray, np.ndarray]:
+    design_bench_task = design_bench.make(task)
+
+    if task == "TFBind10-Exact-v0":
+        x_all = np.load(data_dir / f"{task}_x.npy")
+
+        tfbind10_oracle = _load_tfbind10_oracle(data_dir)
+        x_char = np.array(["A", "C", "G", "T"])[x_all]
+        y_all = np.array([[tfbind10_oracle["".join(xc)]] for xc in x_char])
+
+        # Use designs in the lower 50th percentile as the offline dataset
+        offline_size = len(y_all) // 2
+        offline_indices = y_all.squeeze(-1).argpartition(offline_size)[:offline_size]
+        x_offline = x_all[offline_indices]
+
+        return design_bench_task, x_offline, x_all
+
+    x_offline = design_bench_task.x
+
+    # Create a temporary task object to avoid mutating `design_bench_task`
+    tmp_design_bench_task = design_bench.make(task)
+    tmp_design_bench_task.dataset.subsample()
+    x_all = tmp_design_bench_task.x
+
+    return design_bench_task, x_offline, x_all
+
+
+def _prepare_prompts(task: str, design_dim: int) -> tuple[str, str]:
+    match task:
         case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
-            factor = "SIX6_REF_R1" if task_name == "TFBind8-Exact-v0" else "Pho4"
+            factor = "SIX6_REF_R1" if task == "TFBind8-Exact-v0" else "Pho4"
             system_prompt = TFBIND_SYSTEM_PROMPT.format(
                 design_dim=design_dim,
                 factor=factor
@@ -116,17 +128,17 @@ def _prepare_prompts(task_name: str, design_dim: int) -> tuple[str, str]:
         case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
             system_prompt = (
                 ANT_SYSTEM_PROMPT
-                if task_name == "AntMorphology-Exact-v0"
+                if task == "AntMorphology-Exact-v0"
                 else DKITTY_SYSTEM_PROMPT
             )
             return system_prompt, MORPHOLOGY_USER_PROMPT
 
         case _:
-            raise ValueError(f"Invalid task: {task_name}")
+            raise ValueError(f"Invalid task: {task}")
 
 
-def _load_tfbind10_targets() -> dict[str, float]:
-    text = (DATA_DIR / "TFBind10-Exact-v0_oracle.txt").read_text()
+def _load_tfbind10_oracle(data_dir: Path) -> dict[str, float]:
+    text = (data_dir / "TFBind10-Exact-v0_oracle.txt").read_text()
     return {k: float(v) for l in text.splitlines() for k, v in [l.split()]}
 
 

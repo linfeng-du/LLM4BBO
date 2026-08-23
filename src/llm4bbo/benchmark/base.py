@@ -1,18 +1,27 @@
+import logging
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor
 from importlib import resources
+from multiprocessing import get_context
 from pathlib import Path
+
+from tqdm import tqdm
 
 import numpy as np
 from transformers.pipelines.text_generation import ChatType
 
 
+logger = logging.getLogger(__name__)
+
 ASSETS_DIR = resources.files("llm4bbo") / "assets"
+NUM_PREDICT_WORKERS = len(os.sched_getaffinity(0))
 
 
 class BenchmarkTask(ABC):
     benchmark: str
-    task: str
+    task_name: str
     design_dim: int
     num_designs: int
     system_prompt: str
@@ -31,7 +40,7 @@ class BenchmarkTask(ABC):
         self.x_offline = x_offline
         self.y_offline = self.predict(
             self.x_offline,
-            cache_path=self.data_dir / f"{self.task}_y_offline.npy"
+            cache_path=self.data_dir / f"{self.task_name}_y_offline.npy"
         )
 
         self.selected_indices = _select_evenly_spaced_indices(
@@ -53,23 +62,18 @@ class BenchmarkTask(ABC):
         self,
         x: np.ndarray,
         y: np.ndarray,
-        use_tool: bool,
         max_tool_calls: int | None = None,
-        generate_trace: bool = False,
         x_target: np.ndarray | None = None
     ) -> ChatType:
         system_parts = [self.system_prompt]
 
-        if use_tool:
-            if max_tool_calls is None or max_tool_calls <= 0:
-                raise ValueError("max_tool_calls must be positive when use_tool=True")
+        if max_tool_calls is not None:
+            if max_tool_calls <= 0:
+                raise ValueError("max_tool_calls must be positive")
 
             system_parts.append(TOOL_USE_PROMPT.format(max_tool_calls=max_tool_calls))
 
-        if generate_trace:
-            if x_target is None:
-                raise ValueError("x_target is required when generate_trace=True")
-
+        if x_target is not None:
             target = self.render_design(x_target)
             system_parts.append(TRACE_GENERATION_PROMPT.format(target=target))
 
@@ -103,7 +107,11 @@ class BenchmarkTask(ABC):
         return np.array(designs), np.array(valid_flags)
 
     def predict(self, x: np.ndarray, cache_path: Path | None = None) -> np.ndarray:
-        if cache_path is not None and cache_path.exists():
+        if cache_path is None:
+            return self._predict(x)
+
+        if cache_path.exists():
+            logger.info("Loading predictions from cache: %s", cache_path)
             y = np.load(cache_path)
 
             if y.shape != (len(x), 1):
@@ -114,10 +122,21 @@ class BenchmarkTask(ABC):
 
             return y
 
-        y = self._predict(x)
+        with ProcessPoolExecutor(
+            max_workers=NUM_PREDICT_WORKERS,
+            mp_context=get_context("fork"),
+            initializer=_init_worker_predict,
+            initargs=(self._predict,)
+        ) as executor:
+            prediction_iter = tqdm(
+                executor.map(_predict_one, x),
+                total=len(x),
+                desc="Predicting"
+            )
+            y = np.concatenate(list(prediction_iter))
 
-        if cache_path is not None:
             np.save(cache_path, y)
+            logger.info("Saved predictions to cache: %s", cache_path)
 
         return y
 
@@ -141,6 +160,18 @@ class BenchmarkTask(ABC):
         ...
 
 
+_worker_predict = None
+
+
+def _init_worker_predict(predict: Callable) -> None:
+    global _worker_predict
+    _worker_predict = predict
+
+
+def _predict_one(x: np.ndarray) -> np.ndarray:
+    return _worker_predict(x[None, :])
+
+
 def _select_evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
     sorted_indices = y.squeeze(-1).argsort()
     spaced_indices = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
@@ -150,17 +181,17 @@ def _select_evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray
 REGISTRY: dict[str, type[BenchmarkTask]] = {}
 
 
-def make_task(task: str, num_designs: int) -> BenchmarkTask:
-    return REGISTRY[task](task, num_designs)
+def make_task(task_key: str, num_designs: int) -> BenchmarkTask:
+    return REGISTRY[task_key](task_key, num_designs)
 
 
-def register_tasks(*tasks: str) -> Callable:
+def register_tasks(*task_keys: str) -> Callable:
     def decorator(cls: type[BenchmarkTask]) -> type[BenchmarkTask]:
-        for task in tasks:
-            if task in REGISTRY:
-                raise ValueError(f"Task already registered: {task}")
+        for task_key in task_keys:
+            if task_key in REGISTRY:
+                raise ValueError(f"Task already registered: {task_key}")
 
-            REGISTRY[task] = cls
+            REGISTRY[task_key] = cls
 
         return cls
 
@@ -174,7 +205,6 @@ The tool returns the predicted score and uncertainty for each design. \
 Use these results to continue your reasoning.\
 """
 
-
 TRACE_GENERATION_PROMPT = """\
 Generate a reasoning trace that arrives at the target design below. \
 The target design is known to outperform all provided examples.
@@ -185,7 +215,6 @@ Treat the target design as the outcome of your own analysis. \
 Do not mention or imply that it was supplied in advance. \
 Conclude with the target design as your final answer.\
 """
-
 
 FINAL_INSTRUCTION = """\
 Reason step-by-step, \

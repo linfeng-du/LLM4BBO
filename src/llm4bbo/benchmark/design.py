@@ -2,8 +2,6 @@ import ast
 import re
 from pathlib import Path
 
-import llm4bbo.patches
-
 import design_bench
 from design_bench.task import Task
 
@@ -20,105 +18,109 @@ TASK_SPECS = {
     "dkitty": ("DKittyMorphology-Exact-v0", 56)
 }
 
+# TODO: Confirm the decimal precision for rendered parameters and scores
+PARAMETER_PRECISION = 3
+SCORE_PRECISION = 6
+
 
 @register_tasks(*TASK_SPECS)
 class DesignBenchTask(BenchmarkTask):
     benchmark: str = "design_bench"
 
-    def __init__(self, task: str, num_designs: int) -> None:
-        self.task, self.design_dim = TASK_SPECS[task]
+    def __init__(self, task_key: str, num_designs: int) -> None:
+        self.task_name, self.design_dim = TASK_SPECS[task_key]
         self.num_designs = num_designs
 
         self.system_prompt, self.user_prompt = _prepare_prompts(
-            self.task,
+            self.task_name,
             self.design_dim
         )
 
-        self._design_bench_task, x_offline, x_all = _prepare_task_and_designs(
-            self.task,
+        self._task, x_offline, x_all = _prepare_task_and_designs(
+            self.task_name,
             self.data_dir
         )
 
-        if self.task == "TFBind10-Exact-v0":
-            self.tfbind10_oracle = _load_tfbind10_oracle(self.data_dir)
+        if self.task_name == "TFBind10-Exact-v0":
+            self._tfbind10_oracle = _load_tfbind10_oracle(self.data_dir)
 
         super().__init__(x_offline)
 
-        y_all = self.predict(x_all, cache_path=self.data_dir / f"{self.task}_y.npy")
+        y_all = self.predict(
+            x_all,
+            cache_path=self.data_dir / f"{self.task_name}_y.npy"
+        )
         self.oracle_scaler = MinMaxScaler().fit(y_all)
 
     def render_design(self, x: np.ndarray) -> str:
-        match self.task:
+        match self.task_name:
             case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
                 return _render_tfbind_design(x)
             case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
                 return _render_morphology_design(x)
             case _:
-                raise ValueError(f"Invalid task: {self.task}")
+                raise ValueError(f"Invalid task: {self.task_name}")
 
     def render_example(self, x: np.ndarray, y: np.ndarray) -> str:
-        match self.task:
+        match self.task_name:
             case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
                 return _render_tfbind_example(x, y)
             case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
                 return _render_morphology_example(x, y)
             case _:
-                raise ValueError(f"Invalid task: {self.task}")
+                raise ValueError(f"Invalid task: {self.task_name}")
 
     def _parse_completion(
         self,
         completion: str
     ) -> tuple[list[int] | list[float], bool]:
-        match self.task:
+        match self.task_name:
             case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
                 return _parse_tfbind_completion(completion, self.design_dim)
             case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
                 return _parse_morphology_completion(completion, self.design_dim)
             case _:
-                raise ValueError(f"Invalid task: {self.task}")
+                raise ValueError(f"Invalid task: {self.task_name}")
 
     def _predict(self, x: np.ndarray) -> np.ndarray:
-        if self.task == "TFBind10-Exact-v0":
-            x_char = np.array(["A", "C", "G", "T"])[x]
-            return np.array([[self.tfbind10_oracle["".join(xc)]] for xc in x_char])
+        if self.task_name == "TFBind10-Exact-v0":
+            return _predict_tfbind10(self._tfbind10_oracle, x)
 
-        return self._design_bench_task.predict(x)
+        return self._task.predict(x)
 
 
 def _prepare_task_and_designs(
-    task: str,
+    task_name: str,
     data_dir: Path
 ) -> tuple[Task, np.ndarray, np.ndarray]:
-    design_bench_task = design_bench.make(task)
+    task = design_bench.make(task_name)
 
-    if task == "TFBind10-Exact-v0":
-        x_all = np.load(data_dir / f"{task}_x.npy")
-
+    if task_name == "TFBind10-Exact-v0":
+        x_all = np.load(data_dir / f"{task_name}_x.npy")
         tfbind10_oracle = _load_tfbind10_oracle(data_dir)
-        x_char = np.array(["A", "C", "G", "T"])[x_all]
-        y_all = np.array([[tfbind10_oracle["".join(xc)]] for xc in x_char])
+        y_all = _predict_tfbind10(tfbind10_oracle, x_all)
 
         # Use designs in the lower 50th percentile as the offline dataset
         offline_size = len(y_all) // 2
         offline_indices = y_all.squeeze(-1).argpartition(offline_size)[:offline_size]
         x_offline = x_all[offline_indices]
 
-        return design_bench_task, x_offline, x_all
+        return task, x_offline, x_all
 
-    x_offline = design_bench_task.x
+    x_offline = task.x
 
-    # Create a temporary task object to avoid mutating `design_bench_task`
-    tmp_design_bench_task = design_bench.make(task)
-    tmp_design_bench_task.dataset.subsample()
-    x_all = tmp_design_bench_task.x
+    # Create a temporary task object to avoid mutating `task`
+    tmp_task = design_bench.make(task_name)
+    tmp_task.dataset.subsample()
+    x_all = tmp_task.x
 
-    return design_bench_task, x_offline, x_all
+    return task, x_offline, x_all
 
 
-def _prepare_prompts(task: str, design_dim: int) -> tuple[str, str]:
-    match task:
+def _prepare_prompts(task_name: str, design_dim: int) -> tuple[str, str]:
+    match task_name:
         case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
-            factor = "SIX6_REF_R1" if task == "TFBind8-Exact-v0" else "Pho4"
+            factor = "SIX6_REF_R1" if task_name == "TFBind8-Exact-v0" else "Pho4"
             system_prompt = TFBIND_SYSTEM_PROMPT.format(
                 design_dim=design_dim,
                 factor=factor
@@ -128,13 +130,13 @@ def _prepare_prompts(task: str, design_dim: int) -> tuple[str, str]:
         case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
             system_prompt = (
                 ANT_SYSTEM_PROMPT
-                if task == "AntMorphology-Exact-v0"
+                if task_name == "AntMorphology-Exact-v0"
                 else DKITTY_SYSTEM_PROMPT
             )
             return system_prompt, MORPHOLOGY_USER_PROMPT
 
         case _:
-            raise ValueError(f"Invalid task: {task}")
+            raise ValueError(f"Invalid task: {task_name}")
 
 
 def _load_tfbind10_oracle(data_dir: Path) -> dict[str, float]:
@@ -145,23 +147,30 @@ def _load_tfbind10_oracle(data_dir: Path) -> dict[str, float]:
 BASES = ["A", "C", "G", "T"]
 
 
+def _predict_tfbind10(oracle: dict[str, float], x: np.ndarray) -> np.ndarray:
+    x_char = np.array(BASES)[x]
+    return np.array([[oracle["".join(xc)]] for xc in x_char])
+
+
 def _render_tfbind_design(x: np.ndarray) -> str:
     return f"<design>{[BASES[b] for b in x]}</design>"
 
 
-#TODO: Confirm decimal places to use
 def _render_tfbind_example(x: np.ndarray, y: np.ndarray) -> str:
-    return f"DNA: {_render_tfbind_design(x)}, Binding Score: {round(y.item(), 6)}"
+    return (
+        f"DNA: {_render_tfbind_design(x)}, "
+        f"Binding Score: {round(y.item(), SCORE_PRECISION)}"
+    )
 
 
 def _render_morphology_design(x: np.ndarray) -> str:
-    return f"<design>{[round(p.item(), 3) for p in x]}</design>"
+    return f"<design>{[round(p.item(), PARAMETER_PRECISION) for p in x]}</design>"
 
 
 def _render_morphology_example(x: np.ndarray, y: np.ndarray) -> str:
     return (
         f"Robot Morphology: {_render_morphology_design(x)}, "
-        f"Performance Score: {round(y.item(), 6)}"
+        f"Performance Score: {round(y.item(), SCORE_PRECISION)}"
     )
 
 
@@ -233,7 +242,6 @@ of exactly {design_dim} bases using only A, C, G, and T. \
 Your objective is to maximize its binding score for the transcription factor {factor}.\
 """
 
-
 TFBIND_USER_PROMPT = """\
 The following DNA sequences are provided as references, \
 along with their binding scores:
@@ -243,7 +251,6 @@ along with their binding scores:
 Using these examples as references, \
 design a new sequence expected to outperform the best example.\
 """
-
 
 # AntMorphology-Exact-v0
 # https://github.com/brandontrabucco/morphing-agents/tree/master/morphing_agents/mujoco/ant
@@ -265,7 +272,6 @@ p10, p11: Midpoint and half-range of the ankle joint's motion range.
 p12, p13, p14: Lengths of the hip, thigh, and ankle links.\
 """
 
-
 # DKittyMorphology-Exact-v0
 # https://github.com/brandontrabucco/morphing-agents/tree/master/morphing_agents/mujoco/dkitty
 DKITTY_SYSTEM_PROMPT = """\
@@ -285,7 +291,6 @@ p8, p9: Midpoint and half-range of the thigh joint's motion range.
 p10, p11: Midpoint and half-range of the ankle joint's motion range.
 p12, p13: Lengths of the thigh and ankle links.\
 """
-
 
 MORPHOLOGY_USER_PROMPT = """\
 The following robot morphologies are provided as references, \

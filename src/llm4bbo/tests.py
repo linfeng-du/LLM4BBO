@@ -1,7 +1,6 @@
-import llm4bbo.patches
+import logging
 
 import fire
-
 from datasets import Dataset
 
 from transformers import AutoTokenizer
@@ -9,9 +8,27 @@ from trl.generation.vllm_client import VLLMClient
 
 from vllm import LLM, SamplingParams
 
-from llm4bbo.dataset import build_dataset
-from llm4bbo.generate import GenerateWithTools
-from llm4bbo.gpr import create_tool
+from llm4bbo.benchmark import make_task
+# from llm4bbo.dataset import build_dataset
+# from llm4bbo.generate import GenerateWithTools
+# from llm4bbo.gpr import create_tool
+
+
+def test_benchmark(task_key: str = "tf8", num_designs: int = 500) -> None:
+    task = make_task(task_key, num_designs)
+
+    print("benchmark:", task.benchmark, end="\n\n")
+    print("task_name:", task.task_name, end="\n\n")
+    print("design_dim:", task.design_dim, end="\n\n")
+    print("num_designs:", task.num_designs, end="\n\n")
+    print("system_prompt:", task.system_prompt, sep="\n", end="\n\n")
+    print("user_prompt:", task.user_prompt, sep="\n", end="\n\n")
+
+    print("x_offline.shape:", task.x_offline.shape, end="\n\n")
+    print("y_offline.shape:", task.y_offline.shape, end="\n\n")
+    print("selected_indices.shape:", task.selected_indices.shape, end="\n\n")
+    print("x.shape:", task.x.shape, end="\n\n")
+    print("y.shape:", task.y.shape, end="\n\n")
 
 
 def check_dataset(
@@ -136,4 +153,5 @@ def _get_dataset(task_name: str, stage: str, use_tools: bool) -> Dataset:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     fire.Fire()

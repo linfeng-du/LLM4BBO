@@ -169,7 +169,7 @@ def _init_worker_predict(predict: Callable) -> None:
 
 
 def _predict_one(x: np.ndarray) -> np.ndarray:
-    return _worker_predict(x[None, :])
+    return _worker_predict(x.reshape(1, -1))
 
 
 def _select_evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray:

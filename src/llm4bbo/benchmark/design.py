@@ -22,6 +22,9 @@ TASK_SPECS = {
 PARAMETER_PRECISION = 3
 SCORE_PRECISION = 6
 
+BASES = ["A", "C", "G", "T"]
+DESIGN_PATTERN = re.compile(r"<design>(.*?)</design>", re.DOTALL)
+
 
 @register_tasks(*TASK_SPECS)
 class DesignBenchTask(BenchmarkTask):
@@ -89,6 +92,28 @@ class DesignBenchTask(BenchmarkTask):
         return self._task.predict(x)
 
 
+def _prepare_prompts(task_name: str, design_dim: int) -> tuple[str, str]:
+    match task_name:
+        case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
+            factor = "SIX6_REF_R1" if task_name == "TFBind8-Exact-v0" else "Pho4"
+            system_prompt = TFBIND_SYSTEM_PROMPT.format(
+                design_dim=design_dim,
+                factor=factor
+            )
+            return system_prompt, TFBIND_USER_PROMPT
+
+        case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
+            system_prompt = (
+                ANT_SYSTEM_PROMPT
+                if task_name == "AntMorphology-Exact-v0"
+                else DKITTY_SYSTEM_PROMPT
+            )
+            return system_prompt, MORPHOLOGY_USER_PROMPT
+
+        case _:
+            raise ValueError(f"Invalid task: {task_name}")
+
+
 def _prepare_task_and_designs(
     task_name: str,
     data_dir: Path
@@ -117,43 +142,17 @@ def _prepare_task_and_designs(
     return task, x_offline, x_all
 
 
-def _prepare_prompts(task_name: str, design_dim: int) -> tuple[str, str]:
-    match task_name:
-        case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
-            factor = "SIX6_REF_R1" if task_name == "TFBind8-Exact-v0" else "Pho4"
-            system_prompt = TFBIND_SYSTEM_PROMPT.format(
-                design_dim=design_dim,
-                factor=factor
-            )
-            return system_prompt, TFBIND_USER_PROMPT
-
-        case "AntMorphology-Exact-v0" | "DKittyMorphology-Exact-v0":
-            system_prompt = (
-                ANT_SYSTEM_PROMPT
-                if task_name == "AntMorphology-Exact-v0"
-                else DKITTY_SYSTEM_PROMPT
-            )
-            return system_prompt, MORPHOLOGY_USER_PROMPT
-
-        case _:
-            raise ValueError(f"Invalid task: {task_name}")
-
-
 def _load_tfbind10_oracle(data_dir: Path) -> dict[str, float]:
     text = (data_dir / "TFBind10-Exact-v0_oracle.txt").read_text()
     return {k: float(v) for l in text.splitlines() for k, v in [l.split()]}
 
 
-BASES = ["A", "C", "G", "T"]
-
-
-def _predict_tfbind10(oracle: dict[str, float], x: np.ndarray) -> np.ndarray:
-    x_char = np.array(BASES)[x]
-    return np.array([[oracle["".join(xc)]] for xc in x_char])
-
-
 def _render_tfbind_design(x: np.ndarray) -> str:
     return f"<design>{[BASES[b] for b in x]}</design>"
+
+
+def _render_morphology_design(x: np.ndarray) -> str:
+    return f"<design>{[round(p.item(), PARAMETER_PRECISION) for p in x]}</design>"
 
 
 def _render_tfbind_example(x: np.ndarray, y: np.ndarray) -> str:
@@ -163,18 +162,11 @@ def _render_tfbind_example(x: np.ndarray, y: np.ndarray) -> str:
     )
 
 
-def _render_morphology_design(x: np.ndarray) -> str:
-    return f"<design>{[round(p.item(), PARAMETER_PRECISION) for p in x]}</design>"
-
-
 def _render_morphology_example(x: np.ndarray, y: np.ndarray) -> str:
     return (
         f"Robot Morphology: {_render_morphology_design(x)}, "
         f"Performance Score: {round(y.item(), SCORE_PRECISION)}"
     )
-
-
-DESIGN_PATTERN = re.compile(r"<design>(.*?)</design>", re.DOTALL)
 
 
 def _parse_tfbind_completion(
@@ -232,6 +224,11 @@ def _parse_morphology_completion(
         return [0.0] * design_dim, False
 
     return design, True
+
+
+def _predict_tfbind10(oracle: dict[str, float], x: np.ndarray) -> np.ndarray:
+    x_char = np.array(BASES)[x]
+    return np.array([[oracle["".join(xc)]] for xc in x_char])
 
 
 # TFBind8-Exact-v0 & TFBind10-Exact-v0

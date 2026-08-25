@@ -30,6 +30,14 @@ pip install -e .
 pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn_3-3.0.0+cu128torch2.11gite2743ab-cp39-abi3-linux_x86_64.whl
 ```
 
+Install [SOO-Bench](https://github.com/zhuyiyi-123/SOO-Bench) from source.
+
+```bash
+git clone https://github.com/zhuyiyi-123/SOO-Bench.git
+cd SOO-Bench
+pip install --no-deps --config-settings editable_mode=compat -e .
+```
+
 Perform runtime compilation for `mujoco_py`.
 
 ```bash

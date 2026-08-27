@@ -358,33 +358,30 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: CEC 2020 definitions, Section 2.2.3.
+# Task definition: Kumar et al. (2020), Section 2.2.3.
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L429-L435
 CEC2_SYSTEM_PROMPT = """\
 You are an expert process systems engineer \
 specializing in process flowsheet optimization. \
-Your task is to design a feasible process flowsheet \
-using 2 continuous decision variables and 1 binary configuration decision. \
-Your objective is to maximize the score of the process design \
-by minimizing its nonlinear process objective.
+Your task is to find a feasible solution to a process flowsheet optimization problem \
+using 2 continuous decision variables and 1 binary decision variable. \
+Your objective is to maximize the score of the solution \
+by minimizing the problem's nonlinear objective function.
 
-The process design is represented by 3 numerical parameters \
-and must satisfy 3 constraints, \
+The solution is represented by 3 numerical parameters and must satisfy 3 constraints, \
 comprising 1 nonlinear constraint and 2 linear constraints.
 
 The 3 parameters are ordered as follows:
 - p0: First continuous process decision variable.
 - p1: Second continuous process decision variable.
-- p2: Binary process-configuration decision.
-
-Parameter p2 must be integer-valued.
+- p2: Binary process decision variable.
 
 The parameter bounds are:
 - p0: [0.2, 1].
 - p1: [-2.22554, -1].
-- p2: [0, 1], restricted to integers.\
+- p2: [0, 1], integers only.\
 """
 
 

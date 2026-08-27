@@ -1,4 +1,4 @@
-# Task and parameter semantics: GTOPX paper, Section 2.1 and Table 2.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L315-L321
@@ -35,7 +35,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: GTOPX paper, Section 2.2 and Table 3.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.2 and Table 3.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L322-L330
@@ -87,7 +87,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: GTOPX paper, Section 2.3 and Table 4.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.3 and Table 4.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L331-L339
@@ -132,7 +132,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: GTOPX paper, Section 2.4 and Table 5.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.4 and Table 5.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L340-L350
@@ -184,7 +184,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: GTOPX paper, Section 2.5 and Table 6.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.5 and Table 6.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L351-L357
@@ -220,7 +220,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: GTOPX paper, Section 2.6 and Table 7.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.6 and Table 7.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L358-L366
@@ -271,7 +271,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: GTOPX paper, Section 2.8 and Tables 9-10.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.8 and Tables 9 & 10.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
 # Parameter count, bounds, and constraint count:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373

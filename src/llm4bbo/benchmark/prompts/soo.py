@@ -46,8 +46,7 @@ Your task is to design a trajectory for a multiple gravity assist space mission 
 that departs from Earth and culminates in a rendezvous with Saturn. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Venus -> Venus -> Earth -> Jupiter -> Saturn (end). \
-The trajectory includes 1 deep-space maneuver (DSM) \
-on each of the 5 transfer legs. \
+The trajectory includes 1 deep-space maneuver (DSM) on each of the 5 transfer legs. \
 Your objective is to maximize the score of the trajectory \
 by minimizing the total velocity change accumulated during the entire mission.
 
@@ -99,8 +98,7 @@ Your task is to design a trajectory for a multiple gravity assist space mission 
 that departs from Earth and culminates in a rendezvous with Mercury. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Earth -> Venus -> Venus -> Mercury (end). \
-The trajectory includes 1 deep-space maneuver (DSM) \
-on each of the 4 transfer legs. \
+The trajectory includes 1 deep-space maneuver (DSM) on each of the 4 transfer legs. \
 Your objective is to maximize the score of the trajectory \
 by minimizing the total velocity change accumulated during the entire mission.
 
@@ -147,8 +145,7 @@ The target orbit has a pericenter radius of 2,640 km and an eccentricity of 0.70
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Venus -> Venus -> Mercury -> Mercury -> Mercury -> Mercury (end). \
 The mission includes three resonant fly-bys at Mercury before orbit insertion. \
-The trajectory includes 1 deep-space maneuver (DSM) \
-on each of the 6 transfer legs. \
+The trajectory includes 1 deep-space maneuver (DSM) on each of the 6 transfer legs. \
 Your objective is to maximize the score of the trajectory \
 by minimizing the total velocity change accumulated during the entire mission.
 
@@ -235,8 +232,7 @@ that departs from Earth and culminates in \
 a rendezvous with comet 67P/Churyumov-Gerasimenko. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Earth -> Mars -> Earth -> Earth -> 67P (end). \
-The trajectory includes 1 deep-space maneuver (DSM) \
-on each of the 5 transfer legs. \
+The trajectory includes 1 deep-space maneuver (DSM) on each of the 5 transfer legs. \
 Your objective is to maximize the score of the trajectory \
 by minimizing the total velocity change accumulated during the entire mission.
 
@@ -285,7 +281,8 @@ specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in insertion into an orbit around Saturn. \
 The target orbit has a pericenter radius of 108,950 km and an eccentricity of 0.98. \
-As part of the trajectory design, you must select the 4 intermediate fly-by planets. \
+As part of the trajectory design, \
+you must select the 4 intermediate fly-by planets. \
 Your objective is to maximize the score of the trajectory \
 by minimizing the total velocity change accumulated during the entire mission.
 

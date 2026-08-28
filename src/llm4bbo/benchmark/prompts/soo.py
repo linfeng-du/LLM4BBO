@@ -1,6 +1,6 @@
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L315-L321
 GTOPX1_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -10,8 +10,9 @@ that departs from Earth and culminates in insertion into an orbit around Saturn.
 The target orbit has a pericenter radius of 108,950 km and an eccentricity of 0.98. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Venus -> Venus -> Earth -> Jupiter -> Saturn (end). \
-Your objective is to maximize the score of the trajectory \
-by minimizing the total velocity change accumulated during the entire mission.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to minimizing the total velocity change \
+accumulated during the entire mission.
 
 The trajectory is represented by 6 continuous parameters \
 and must satisfy 4 constraints, \
@@ -37,7 +38,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.2 and Table 3.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L322-L330
 GTOPX2_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -47,8 +48,9 @@ that departs from Earth and culminates in a rendezvous with Saturn. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Venus -> Venus -> Earth -> Jupiter -> Saturn (end). \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 5 transfer legs. \
-Your objective is to maximize the score of the trajectory \
-by minimizing the total velocity change accumulated during the entire mission.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to minimizing the total velocity change \
+accumulated during the entire mission.
 
 The trajectory is represented by 22 continuous parameters.
 
@@ -89,7 +91,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.3 and Table 4.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L331-L339
 GTOPX3_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -99,8 +101,9 @@ that departs from Earth and culminates in a rendezvous with Mercury. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Earth -> Venus -> Venus -> Mercury (end). \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 4 transfer legs. \
-Your objective is to maximize the score of the trajectory \
-by minimizing the total velocity change accumulated during the entire mission.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to minimizing the total velocity change \
+accumulated during the entire mission.
 
 The trajectory is represented by 18 continuous parameters.
 
@@ -134,7 +137,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.4 and Table 5.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L340-L350
 GTOPX4_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -146,8 +149,9 @@ The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Venus -> Venus -> Mercury -> Mercury -> Mercury -> Mercury (end). \
 The mission includes three resonant fly-bys at Mercury before orbit insertion. \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 6 transfer legs. \
-Your objective is to maximize the score of the trajectory \
-by minimizing the total velocity change accumulated during the entire mission.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to minimizing the total velocity change \
+accumulated during the entire mission.
 
 The trajectory is represented by 26 continuous parameters.
 
@@ -186,7 +190,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.5 and Table 6.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L351-L357
 GTOPX5_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -195,7 +199,9 @@ Your task is to design a trajectory for a multiple gravity assist space mission 
 that departs from Earth and culminates in an impact with asteroid TW229. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Venus -> Earth -> Venus -> Earth -> Jupiter -> Saturn -> TW229 (end). \
-Your objective is to maximize the change in the semi-major axis of the asteroid's orbit.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to maximizing the change in the semi-major axis \
+of the asteroid's orbit.
 
 The trajectory is represented by 8 continuous parameters \
 and must satisfy 6 constraints, \
@@ -222,7 +228,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.6 and Table 7.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L358-L366
 GTOPX6_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -233,8 +239,9 @@ a rendezvous with comet 67P/Churyumov-Gerasimenko. \
 The sequence of fly-by planets for this mission is as follows: \
 Earth (start) -> Earth -> Mars -> Earth -> Earth -> 67P (end). \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 5 transfer legs. \
-Your objective is to maximize the score of the trajectory \
-by minimizing the total velocity change accumulated during the entire mission.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to minimizing the total velocity change \
+accumulated during the entire mission.
 
 The trajectory is represented by 22 continuous parameters.
 
@@ -273,7 +280,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.8 and Tables 9 & 10.
 # https://www.sciencedirect.com/science/article/pii/S235271102100011X
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373
 GTOPX7_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
@@ -283,8 +290,9 @@ that departs from Earth and culminates in insertion into an orbit around Saturn.
 The target orbit has a pericenter radius of 108,950 km and an eccentricity of 0.98. \
 As part of the trajectory design, \
 you must select the 4 intermediate fly-by planets. \
-Your objective is to maximize the score of the trajectory \
-by minimizing the total velocity change accumulated during the entire mission.
+Your objective is to maximize the score of the trajectory, \
+which corresponds to minimizing the total velocity change \
+accumulated during the entire mission.
 
 The trajectory is represented by 10 numerical parameters \
 and must satisfy 4 constraints, \
@@ -326,13 +334,14 @@ The parameter bounds are:
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
 # Parameter semantics: Adjiman et al. (1998), Section 4.
 # https://www.sciencedirect.com/science/article/pii/S0098135498000271
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L422-L428
 CEC1_SYSTEM_PROMPT = """\
 You are an expert chemical engineer specializing in alkylation process optimization. \
 Your task is to determine a feasible operating point for an alkylation unit \
 that reacts an olefin feed with isobutane in the presence of an acid catalyst. \
-Your objective is to maximize the daily profit generated by the alkylation unit.
+Your objective is to maximize the score of the operating point, \
+which corresponds to maximizing the daily profit generated by the alkylation unit.
 
 The operating point is represented by 7 continuous parameters \
 and must satisfy 14 constraints, \
@@ -360,15 +369,14 @@ The parameter bounds are:
 
 # Task definition: Kumar et al. (2020), Section 2.2.3.
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L429-L435
 CEC2_SYSTEM_PROMPT = """\
 You are an expert process systems engineer \
 specializing in process flowsheet optimization. \
 Your task is to find a feasible solution to a process flowsheet optimization problem \
 using 2 continuous decision variables and 1 binary decision variable. \
-Your objective is to maximize the score of the solution \
-by minimizing the problem's nonlinear objective function.
+Your objective is to maximize the score of the solution.
 
 The solution is represented by 3 numerical parameters and must satisfy 3 constraints, \
 comprising 1 nonlinear constraint and 2 linear constraints.
@@ -385,37 +393,33 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: CEC 2020 definitions, Section 2.2.1.
+# Task definition: Kumar et al. (2020), Section 2.2.1.
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L436-L442
 CEC3_SYSTEM_PROMPT = """\
 You are an expert process systems engineer \
 specializing in process synthesis optimization. \
-Your task is to design a feasible process configuration \
-using 1 continuous decision variable and 1 binary selection decision. \
-Your objective is to maximize the score of the process design \
-by minimizing its linear process objective.
+Your task is to find a feasible solution to a process synthesis optimization problem \
+using 1 continuous decision variable and 1 binary decision variable. \
+Your objective is to maximize the score of the solution.
 
-The process design is represented by 2 numerical parameters \
-and must satisfy 2 constraints, \
+The solution is represented by 2 numerical parameters and must satisfy 2 constraints, \
 comprising 1 nonlinear constraint and 1 linear constraint.
 
 The 2 parameters are ordered as follows:
 - p0: Continuous process decision variable.
-- p1: Binary process-selection decision.
-
-Parameter p1 must be integer-valued.
+- p1: Binary process decision variable.
 
 The parameter bounds are:
 - p0: [0, 1.6].
-- p1: [0, 1], restricted to integers.\
+- p1: [0, 1], integers only.\
 """
 
 
 # Task and parameter semantics: CEC 2020 definitions, Section 2.3.6.
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L443-L449
 CEC4_SYSTEM_PROMPT = """\
 You are an expert structural engineer \
@@ -444,7 +448,7 @@ The parameter bounds are:
 
 # Task and parameter semantics: CEC 2020 definitions, Section 2.3.5.
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
-# Parameter count, bounds, and constraint count:
+# Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L450-L456
 CEC5_SYSTEM_PROMPT = """\
 You are an expert structural engineer \

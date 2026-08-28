@@ -417,28 +417,28 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: CEC 2020 definitions, Section 2.3.6.
+# Task definition: Kumar et al. (2020), Section 2.3.6.
 # https://www.sciencedirect.com/science/article/pii/S2210650219308946
+# Parameter semantics: Yang et al. (2022), Section 6.1 & Figure 4.
+# https://www.sciencedirect.com/science/article/pii/S0952197622001804
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L443-L449
 CEC4_SYSTEM_PROMPT = """\
-You are an expert structural engineer \
-specializing in truss design optimization. \
+You are an expert structural engineer specializing in truss design optimization. \
 Your task is to design a symmetric 3-bar truss \
-by determining the cross-sectional areas of its members. \
-Your objective is to maximize the score of the truss design \
-by minimizing its structural weight.
+by determining its 2 cross-sectional area variables. \
+Your objective is to maximize the score of the truss design, \
+which corresponds to minimizing its structural weight.
 
 The truss is represented by 2 continuous parameters \
 and must satisfy 3 nonlinear constraints, \
 which impose stress limits on the 3 bars. \
-The 2 symmetric diagonal bars have length sqrt(2) times the reference length, \
-while the central bar has the reference length.
+Each of the 2 symmetric diagonal bars is sqrt(2) times as long as the central bar.
 
 The 2 parameters are ordered as follows:
 - p0: Cross-sectional area shared by the two symmetric diagonal bars, \
 in the benchmark's area units.
-- p1: Cross-sectional area of the central straight bar, \
+- p1: Cross-sectional area of the central bar, \
 in the benchmark's area units.
 
 The parameter bounds are:

@@ -1,5 +1,5 @@
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L315-L321
 GTOPX1_SYSTEM_PROMPT = """\
@@ -37,7 +37,7 @@ The parameter bounds are:
 
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.2 and Table 3.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L322-L330
 GTOPX2_SYSTEM_PROMPT = """\
@@ -90,7 +90,7 @@ The parameter bounds are:
 
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.3 and Table 4.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L331-L339
 GTOPX3_SYSTEM_PROMPT = """\
@@ -136,7 +136,7 @@ The parameter bounds are:
 
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.4 and Table 5.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L340-L350
 GTOPX4_SYSTEM_PROMPT = """\
@@ -189,7 +189,7 @@ The parameter bounds are:
 
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.5 and Table 6.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L351-L357
 GTOPX5_SYSTEM_PROMPT = """\
@@ -227,7 +227,7 @@ The parameter bounds are:
 
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.6 and Table 7.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L358-L366
 GTOPX6_SYSTEM_PROMPT = """\
@@ -278,8 +278,8 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.8 and Tables 9 & 10.
-# https://www.sciencedirect.com/science/article/pii/S235271102100011X
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.8 and Tables 9 and 10.
+# https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373
 GTOPX7_SYSTEM_PROMPT = """\
@@ -296,7 +296,7 @@ accumulated during the entire mission.
 
 The trajectory is represented by 10 numerical parameters \
 and must satisfy 4 constraints, \
-which impose lower limits on the pericenter radii of the 4 fly-by maneuvers.
+which impose lower limits on the pericenter radii of the 4 fly-by maneuvers. \
 The constraint thresholds remain fixed and do not depend on the selected planet codes.
 
 The 10 parameters are ordered as follows:
@@ -331,9 +331,9 @@ The parameter bounds are:
 
 
 # Task definition: Kumar et al. (2020), Section 2.1.6.
-# https://www.sciencedirect.com/science/article/pii/S2210650219308946
+# https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter semantics: Adjiman et al. (1998), Section 4.
-# https://www.sciencedirect.com/science/article/pii/S0098135498000271
+# https://doi.org/10.1016/S0098-1354(98)00027-1
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L422-L428
 CEC1_SYSTEM_PROMPT = """\
@@ -368,7 +368,7 @@ The parameter bounds are:
 
 
 # Task definition: Kumar et al. (2020), Section 2.2.3.
-# https://www.sciencedirect.com/science/article/pii/S2210650219308946
+# https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L429-L435
 CEC2_SYSTEM_PROMPT = """\
@@ -394,7 +394,7 @@ The parameter bounds are:
 
 
 # Task definition: Kumar et al. (2020), Section 2.2.1.
-# https://www.sciencedirect.com/science/article/pii/S2210650219308946
+# https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L436-L442
 CEC3_SYSTEM_PROMPT = """\
@@ -418,9 +418,9 @@ The parameter bounds are:
 
 
 # Task definition: Kumar et al. (2020), Section 2.3.6.
-# https://www.sciencedirect.com/science/article/pii/S2210650219308946
-# Parameter semantics: Yang et al. (2022), Section 6.1 & Figure 4.
-# https://www.sciencedirect.com/science/article/pii/S0952197622001804
+# https://doi.org/10.1016/j.swevo.2020.100693
+# Parameter semantics: Yang et al. (2022), Section 6.1 and Figure 4.
+# https://doi.org/10.1016/j.engappai.2022.104981
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L443-L449
 CEC4_SYSTEM_PROMPT = """\
@@ -446,20 +446,20 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: CEC 2020 definitions, Section 2.3.5.
-# https://www.sciencedirect.com/science/article/pii/S2210650219308946
+# Task definition: Kumar et al. (2020), Section 2.3.5.
+# https://doi.org/10.1016/j.swevo.2020.100693
+# Parameter semantics: Ragsdell and Phillips (1976), Nomenclature.
+# https://doi.org/10.1115/1.3438995
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L450-L456
 CEC5_SYSTEM_PROMPT = """\
-You are an expert structural engineer \
-specializing in welded beam design optimization. \
+You are an expert structural design engineer specializing in welded beam optimization. \
 Your task is to design a welded cantilever beam \
-that is 14 inches long and carries an end load of 6000 pounds. \
-Your objective is to maximize the score of the beam design \
-by minimizing its fabrication cost.
+with a 14-inch cantilever length and a 6000-pound load applied at its free end. \
+Your objective is to maximize the score of the beam design, \
+which corresponds to minimizing its fabrication cost.
 
-The beam is represented by 4 continuous parameters \
-and must satisfy 5 constraints, \
+The beam is represented by 4 continuous parameters and must satisfy 5 constraints, \
 which impose limits on weld-to-beam geometry, normal stress, \
 buckling load, weld shear stress, and tip deflection.
 

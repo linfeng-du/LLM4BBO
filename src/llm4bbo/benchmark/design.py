@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
 from .base import BenchmarkTask, register_tasks
+# from .prompts import DESIGN_SYSTEM_PROMPTS
 
 
 TASK_SPECS = {
@@ -229,72 +230,3 @@ def _parse_morphology_completion(
 def _predict_tfbind10(oracle: dict[str, float], x: np.ndarray) -> np.ndarray:
     x_char = np.array(BASES)[x]
     return np.array([[oracle["".join(xc)]] for xc in x_char])
-
-
-# TFBind8-Exact-v0 & TFBind10-Exact-v0
-TFBIND_SYSTEM_PROMPT = """\
-You are an expert in DNA sequence design. \
-Your task is to design a DNA sequence \
-of exactly {design_dim} bases using only A, C, G, and T. \
-Your objective is to maximize its binding score for the transcription factor {factor}.\
-"""
-
-TFBIND_USER_PROMPT = """\
-The following DNA sequences are provided as references, \
-along with their binding scores:
-
-{references}
-
-Using these examples as references, \
-design a new sequence expected to outperform the best example.\
-"""
-
-# AntMorphology-Exact-v0
-# https://github.com/brandontrabucco/morphing-agents/tree/master/morphing_agents/mujoco/ant
-ANT_SYSTEM_PROMPT = """\
-You are an expert in quadruped robot morphology design. \
-Your task is to design a morphology for the Ant quadruped robot \
-that maximizes its running speed. \
-The morphology is represented by 60 continuous parameters, \
-arranged as four consecutive 15-parameter blocks, one for each leg. \
-Each leg is a 3-link kinematic chain with hip, thigh, and ankle joints. \
-Round every parameter to three decimal places.
-
-Within each 15-parameter leg block, the parameters follow this schema:
-p0, p1, p2: 3D location on the torso where the leg is mounted.
-p3, p4, p5: Fixed orientation of the leg relative to the torso.
-p6, p7: Midpoint and half-range of the hip joint's motion range.
-p8, p9: Midpoint and half-range of the thigh joint's motion range.
-p10, p11: Midpoint and half-range of the ankle joint's motion range.
-p12, p13, p14: Lengths of the hip, thigh, and ankle links.\
-"""
-
-# DKittyMorphology-Exact-v0
-# https://github.com/brandontrabucco/morphing-agents/tree/master/morphing_agents/mujoco/dkitty
-DKITTY_SYSTEM_PROMPT = """\
-You are an expert in quadruped robot morphology design. \
-Your task is to design a morphology for the D'Kitty quadruped robot \
-that maximizes its navigation performance toward a fixed target location. \
-The morphology is represented by 56 continuous parameters, \
-arranged as four consecutive 14-parameter blocks, one for each leg. \
-Each leg is a 3-link kinematic chain with hip, thigh, and ankle joints. \
-Round every parameter to three decimal places.
-
-Within each 14-parameter leg block, the parameters follow this schema:
-p0, p1, p2: 3D location on the torso where the leg is mounted.
-p3, p4, p5: Fixed orientation of the leg relative to the torso.
-p6, p7: Midpoint and half-range of the hip joint's motion range.
-p8, p9: Midpoint and half-range of the thigh joint's motion range.
-p10, p11: Midpoint and half-range of the ankle joint's motion range.
-p12, p13: Lengths of the thigh and ankle links.\
-"""
-
-MORPHOLOGY_USER_PROMPT = """\
-The following robot morphologies are provided as references, \
-along with their performance scores:
-
-{references}
-
-Using these examples as references, \
-design a new morphology expected to outperform the best example.\
-"""

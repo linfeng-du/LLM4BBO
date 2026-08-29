@@ -131,21 +131,3 @@ def _parse_rna_completion(completion: str, design_dim: int) -> tuple[list[int], 
         return [0] * design_dim, False
 
     return [BASES.index(b) for b in design], True
-
-
-RNA_SYSTEM_PROMPT = """\
-You are an expert in RNA sequence design. \
-Your task is to design an RNA sequence \
-of exactly {design_dim} bases using only U, G, C, and A. \
-Your objective is to maximize its binding score for the target RNA sequence {target}.\
-"""
-
-RNA_USER_PROMPT = """\
-The following RNA sequences are provided as references, \
-along with their binding scores:
-
-{references}
-
-Using these examples as references, \
-design a new sequence expected to outperform the best example.\
-"""

@@ -296,8 +296,7 @@ accumulated during the entire mission.
 
 The trajectory is represented by 10 numerical parameters \
 and must satisfy 4 constraints, \
-which impose lower limits on the pericenter radii of the 4 fly-by maneuvers. \
-The constraint thresholds remain fixed and do not depend on the selected planet codes.
+which impose lower limits on the pericenter radii of the 4 fly-by maneuvers.
 
 The 10 parameters are ordered as follows:
 - p0: Initial day, measured in days relative to 1-Jan-2000.
@@ -471,8 +470,7 @@ The 4 parameters are ordered as follows:
 
 The parameter bounds are:
 - p0: [0.125, 2].
-- p1: [0.1, 10].
-- p2: [0.1, 10].
+- p1, p2: [0.1, 10] each.
 - p3: [0.1, 2].\
 """
 

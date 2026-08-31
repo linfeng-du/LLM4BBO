@@ -1,3 +1,6 @@
+# Prompt details were clarified and corrected based on the GTOPX source code:
+# https://www.midaco-solver.com/data/gtopx/cpp/gtopx.cpp
+
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
@@ -7,12 +10,11 @@ You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in insertion into an orbit around Saturn. \
-The target orbit has a pericenter radius of 108,950 km and an eccentricity of 0.98. \
-The sequence of fly-by planets for this mission is as follows: \
-Earth (start) -> Venus -> Venus -> Earth -> Jupiter -> Saturn (end). \
+The intermediate fly-by planets, in encounter order, are: \
+Venus -> Venus -> Earth -> Jupiter. \
 Your objective is to maximize the score of the trajectory, \
 which corresponds to minimizing the total velocity change \
-accumulated during the entire mission.
+accumulated during the mission.
 
 The trajectory is represented by 6 continuous parameters \
 and must satisfy 4 constraints, \
@@ -45,20 +47,20 @@ You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in a rendezvous with Saturn. \
-The sequence of fly-by planets for this mission is as follows: \
-Earth (start) -> Venus -> Venus -> Earth -> Jupiter -> Saturn (end). \
+The intermediate fly-by planets, in encounter order, are: \
+Venus -> Venus -> Earth -> Jupiter. \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 5 transfer legs. \
 Your objective is to maximize the score of the trajectory, \
 which corresponds to minimizing the total velocity change \
-accumulated during the entire mission.
+accumulated during the mission.
 
 The trajectory is represented by 22 continuous parameters.
 
 The 22 parameters are ordered as follows:
 - p0: Initial day, measured in days relative to 1-Jan-2000.
 - p1: Initial hyperbolic excess speed in km/s.
-- p2, p3: Normalized polar-coordinate parameters \
-that determine the direction of the initial hyperbolic excess velocity.
+- p2, p3: Parameters that encode the azimuth and elevation \
+of the initial hyperbolic excess velocity.
 - p4: Time interval from departure at Earth to the first Venus fly-by, in days.
 - p5: Time interval from the first Venus fly-by to the second Venus fly-by, in days.
 - p6: Time interval from the second Venus fly-by to the Earth fly-by, in days.
@@ -66,11 +68,11 @@ that determine the direction of the initial hyperbolic excess velocity.
 - p8: Time interval from the Jupiter fly-by to rendezvous with Saturn, in days.
 - p9-p13: Fraction of the time interval after which the DSM occurs \
 in each corresponding transfer leg.
-- p14-p17: Fly-by pericenter radius at each fly-by encounter, \
+- p14-p17: Fly-by pericenter radius at each corresponding fly-by encounter, \
 measured in radii of the encountered planet.
-- p18-p21: B-plane rotation angles \
-that orient the post-fly-by outgoing relative-velocity vector \
-about the incoming relative-velocity direction at the 4 fly-by encounters, in radians.
+- p18-p21: B-plane rotation angle at each corresponding fly-by encounter, in radians, \
+that orients the outgoing planet-relative velocity vector \
+about the incoming planet-relative velocity direction.
 
 The parameter bounds are:
 - p0: [-1000, 0].
@@ -85,7 +87,7 @@ The parameter bounds are:
 - p14, p15: [1.05, 6] each.
 - p16: [1.15, 6.5].
 - p17: [1.7, 291].
-- p18-p21: [-\\pi, \\pi] each.\
+- p18-p21: [-3.141592653589793, 3.141592653589793] each.\
 """
 
 
@@ -98,31 +100,30 @@ You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in a rendezvous with Mercury. \
-The sequence of fly-by planets for this mission is as follows: \
-Earth (start) -> Earth -> Venus -> Venus -> Mercury (end). \
+The intermediate fly-by planets, in encounter order, are: Earth -> Venus -> Venus. \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 4 transfer legs. \
 Your objective is to maximize the score of the trajectory, \
 which corresponds to minimizing the total velocity change \
-accumulated during the entire mission.
+accumulated during the mission.
 
 The trajectory is represented by 18 continuous parameters.
 
 The 18 parameters are ordered as follows:
 - p0: Initial day, measured in days relative to 1-Jan-2000.
 - p1: Initial hyperbolic excess speed in km/s.
-- p2, p3: Normalized polar-coordinate parameters \
-that determine the direction of the initial hyperbolic excess velocity.
+- p2, p3: Parameters that encode the azimuth and elevation \
+of the initial hyperbolic excess velocity.
 - p4: Time interval from departure at Earth to the Earth fly-by, in days.
 - p5: Time interval from the Earth fly-by to the first Venus fly-by, in days.
 - p6: Time interval from the first Venus fly-by to the second Venus fly-by, in days.
 - p7: Time interval from the second Venus fly-by to rendezvous with Mercury, in days.
 - p8-p11: Fraction of the time interval after which the DSM occurs \
 in each corresponding transfer leg.
-- p12-p14: Fly-by pericenter radius at each fly-by encounter, \
+- p12-p14: Fly-by pericenter radius at each corresponding fly-by encounter, \
 measured in radii of the encountered planet.
-- p15-p17: B-plane rotation angles \
-that orient the post-fly-by outgoing relative-velocity vector \
-about the incoming relative-velocity direction at the 3 fly-by encounters, in radians.
+- p15-p17: B-plane rotation angle at each corresponding fly-by encounter, in radians, \
+that orients the outgoing planet-relative velocity vector \
+about the incoming planet-relative velocity direction.
 
 The parameter bounds are:
 - p0: [1000, 4000].
@@ -131,7 +132,7 @@ The parameter bounds are:
 - p4-p7: [30, 400] each.
 - p8-p11: [0.01, 0.99] each.
 - p12-p14: [1.1, 6] each.
-- p15-p17: [-\\pi, \\pi] each.\
+- p15-p17: [-3.141592653589793, 3.141592653589793] each.\
 """
 
 
@@ -144,22 +145,22 @@ You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in insertion into an orbit around Mercury. \
-The target orbit has a pericenter radius of 2,640 km and an eccentricity of 0.704. \
-The sequence of fly-by planets for this mission is as follows: \
-Earth (start) -> Venus -> Venus -> Mercury -> Mercury -> Mercury -> Mercury (end). \
-The mission includes three resonant fly-bys at Mercury before orbit insertion. \
+The intermediate fly-by planets, in encounter order, are: \
+Venus -> Venus -> Mercury -> Mercury -> Mercury. \
+The three intermediate encounters with Mercury are resonant fly-bys \
+preceding the final orbit insertion. \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 6 transfer legs. \
 Your objective is to maximize the score of the trajectory, \
 which corresponds to minimizing the total velocity change \
-accumulated during the entire mission.
+accumulated during the mission.
 
 The trajectory is represented by 26 continuous parameters.
 
 The 26 parameters are ordered as follows:
 - p0: Initial day, measured in days relative to 1-Jan-2000.
 - p1: Initial hyperbolic excess speed in km/s.
-- p2, p3: Normalized polar-coordinate parameters \
-that determine the direction of the initial hyperbolic excess velocity.
+- p2, p3: Parameters that encode the azimuth and elevation \
+of the initial hyperbolic excess velocity.
 - p4: Time interval from departure at Earth to the first Venus fly-by, in days.
 - p5: Time interval from the first Venus fly-by to the second Venus fly-by, in days.
 - p6: Time interval from the second Venus fly-by to the first Mercury fly-by, in days.
@@ -169,11 +170,11 @@ that determine the direction of the initial hyperbolic excess velocity.
 to orbit insertion at Mercury, in days.
 - p10-p15: Fraction of the time interval after which the DSM occurs \
 in each corresponding transfer leg.
-- p16-p20: Fly-by pericenter radius at each fly-by encounter, \
+- p16-p20: Fly-by pericenter radius at each corresponding fly-by encounter, \
 measured in radii of the encountered planet.
-- p21-p25: B-plane rotation angles \
-that orient the post-fly-by outgoing relative-velocity vector \
-about the incoming relative-velocity direction at the 5 fly-by encounters, in radians.
+- p21-p25: B-plane rotation angle at each corresponding fly-by encounter, in radians, \
+that orients the outgoing planet-relative velocity vector \
+about the incoming planet-relative velocity direction.
 
 The parameter bounds are:
 - p0: [1900, 2300].
@@ -184,7 +185,7 @@ The parameter bounds are:
 - p10-p15: [0.01, 0.99] each.
 - p16, p17: [1.1, 6] each.
 - p18-p20: [1.05, 6] each.
-- p21-p25: [-\\pi, \\pi] each.\
+- p21-p25: [-3.141592653589793, 3.141592653589793] each.\
 """
 
 
@@ -197,11 +198,11 @@ You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in an impact with asteroid TW229. \
-The sequence of fly-by planets for this mission is as follows: \
-Earth (start) -> Venus -> Earth -> Venus -> Earth -> Jupiter -> Saturn -> TW229 (end). \
+The intermediate fly-by planets, in encounter order, are: \
+Venus -> Earth -> Venus -> Earth -> Jupiter -> Saturn. \
 Your objective is to maximize the score of the trajectory, \
-which corresponds to maximizing the change in the semi-major axis \
-of the asteroid's orbit.
+which corresponds to maximizing the magnitude of the change \
+in the semi-major axis of the asteroid's orbit.
 
 The trajectory is represented by 8 continuous parameters \
 and must satisfy 6 constraints, \
@@ -234,22 +235,22 @@ GTOPX6_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
-that departs from Earth and culminates in \
-a rendezvous with comet 67P/Churyumov-Gerasimenko. \
-The sequence of fly-by planets for this mission is as follows: \
-Earth (start) -> Earth -> Mars -> Earth -> Earth -> 67P (end). \
+that departs from Earth and culminates in a rendezvous \
+with comet 67P/Churyumov-Gerasimenko. \
+The intermediate fly-by planets, in encounter order, are: \
+Earth -> Mars -> Earth -> Earth. \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 5 transfer legs. \
 Your objective is to maximize the score of the trajectory, \
 which corresponds to minimizing the total velocity change \
-accumulated during the entire mission.
+accumulated during the mission.
 
 The trajectory is represented by 22 continuous parameters.
 
 The 22 parameters are ordered as follows:
 - p0: Initial day, measured in days relative to 1-Jan-2000.
 - p1: Initial hyperbolic excess speed in km/s.
-- p2, p3: Normalized polar-coordinate parameters \
-that determine the direction of the initial hyperbolic excess velocity.
+- p2, p3: Parameters that encode the azimuth and elevation \
+of the initial hyperbolic excess velocity.
 - p4: Time interval from departure at Earth to the first Earth fly-by, in days.
 - p5: Time interval from the first Earth fly-by to the Mars fly-by, in days.
 - p6: Time interval from the Mars fly-by to the second Earth fly-by, in days.
@@ -257,11 +258,11 @@ that determine the direction of the initial hyperbolic excess velocity.
 - p8: Time interval from the third Earth fly-by to rendezvous with comet 67P, in days.
 - p9-p13: Fraction of the time interval after which the DSM occurs \
 in each corresponding transfer leg.
-- p14-p17: Fly-by pericenter radius at each fly-by encounter, \
+- p14-p17: Fly-by pericenter radius at each corresponding fly-by encounter, \
 measured in radii of the encountered planet.
-- p18-p21: B-plane rotation angles \
-that orient the post-fly-by outgoing relative-velocity vector \
-about the incoming relative-velocity direction at the 4 fly-by encounters, in radians.
+- p18-p21: B-plane rotation angle at each corresponding fly-by encounter, in radians, \
+that orients the outgoing planet-relative velocity vector \
+about the incoming planet-relative velocity direction.
 
 The parameter bounds are:
 - p0: [1460, 1825].
@@ -274,7 +275,7 @@ The parameter bounds are:
 - p9-p13: [0.01, 0.9] each.
 - p14: [1.06, 9].
 - p15-p17: [1.05, 9] each.
-- p18-p21: [-\\pi, \\pi] each.\
+- p18-p21: [-3.141592653589793, 3.141592653589793] each.\
 """
 
 
@@ -287,14 +288,13 @@ You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
 that departs from Earth and culminates in insertion into an orbit around Saturn. \
-The target orbit has a pericenter radius of 108,950 km and an eccentricity of 0.98. \
 As part of the trajectory design, \
-you must select the 4 intermediate fly-by planets. \
+a planet is selected for each of the 4 intermediate fly-by encounters. \
 Your objective is to maximize the score of the trajectory, \
 which corresponds to minimizing the total velocity change \
-accumulated during the entire mission.
+accumulated during the mission.
 
-The trajectory is represented by 10 numerical parameters \
+The trajectory is represented by 6 continuous parameters and 4 integer parameters \
 and must satisfy 4 constraints, \
 which impose lower limits on the pericenter radii of the 4 fly-by maneuvers.
 
@@ -305,7 +305,8 @@ The 10 parameters are ordered as follows:
 - p3: Time interval from the second fly-by to the third fly-by, in days.
 - p4: Time interval from the third fly-by to the fourth fly-by, in days.
 - p5: Time interval from the fourth fly-by to orbit insertion at Saturn, in days.
-- p6-p9: Integer planet codes for the 4 intermediate fly-by encounters, in order.
+- p6-p9: Integer planet codes for the 4 intermediate fly-by encounters, \
+in encounter order.
 
 The planet codes are:
 - 1: Mercury.
@@ -316,7 +317,6 @@ The planet codes are:
 - 6: Saturn.
 - 7: Uranus.
 - 8: Neptune.
-- 9: Pluto.
 
 The parameter bounds are:
 - p0: [-1000, 0].
@@ -325,7 +325,7 @@ The parameter bounds are:
 - p3: [30, 400].
 - p4: [400, 2000].
 - p5: [1000, 6000].
-- p6-p9: [1, 9] each; integers only.\
+- p6-p9: [1, 8] each; integers only.\
 """
 
 

@@ -295,8 +295,8 @@ which corresponds to minimizing the total velocity change \
 accumulated during the mission.
 
 The trajectory is represented by 10 parameters, \
-of which 6 are continuous and 4 are integer. \
-It must satisfy 4 constraints, \
+of which 6 are continuous and 4 are integer, \
+and must satisfy 4 constraints, \
 which impose lower limits on the pericenter radii of the 4 fly-by maneuvers.
 
 The 10 parameters are ordered as follows:

@@ -1,4 +1,4 @@
-# Prompt details were clarified and corrected based on the GTOPX source code:
+# Details in the GTOPX1-GTOPX7 prompts were verified and corrected against the GTOPX source code:
 # https://www.midaco-solver.com/data/gtopx/cpp/gtopx.cpp
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
@@ -147,7 +147,7 @@ Your task is to design a trajectory for a multiple gravity assist space mission 
 that departs from Earth and culminates in insertion into an orbit around Mercury. \
 The intermediate fly-by planets, in encounter order, are: \
 Venus -> Venus -> Mercury -> Mercury -> Mercury. \
-The three intermediate encounters with Mercury are resonant fly-bys \
+The 3 intermediate encounters with Mercury are resonant fly-bys \
 preceding the final orbit insertion. \
 The trajectory includes 1 deep-space maneuver (DSM) on each of the 6 transfer legs. \
 Your objective is to maximize the score of the trajectory, \
@@ -439,7 +439,7 @@ which impose stress limits on the 3 bars. \
 Each of the 2 symmetric diagonal bars is sqrt(2) times as long as the central bar.
 
 The 2 parameters are ordered as follows:
-- p0: Cross-sectional area shared by the two symmetric diagonal bars.
+- p0: Cross-sectional area shared by the 2 symmetric diagonal bars.
 - p1: Cross-sectional area of the central bar.
 
 The parameter bounds are:

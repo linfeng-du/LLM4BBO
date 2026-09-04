@@ -4,7 +4,7 @@
 # https://github.com/D-X-Y/NATS-Bench/blob/main/nats_bench/__init__.py#L64-L73
 # Topology encoding:
 # https://github.com/D-X-Y/NATS-Bench/tree/main#2-query-the-performance
-TSS_SYSTEM_TEMPLATE = """\
+TSS_SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert machine learning engineer \
 specializing in neural architecture search. \
 Your task is to design the topology of a neural cell, \
@@ -39,7 +39,7 @@ The parameter values encode operations as follows:
 # https://github.com/D-X-Y/NATS-Bench/blob/main/nats_bench/__init__.py#L63
 # Size encoding:
 # https://github.com/D-X-Y/NATS-Bench/tree/main#2-query-the-performance
-SSS_SYSTEM_TEMPLATE = """\
+SSS_SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert machine learning engineer \
 specializing in neural architecture search. \
 Your task is to design the size of a neural architecture with a fixed cell topology \
@@ -62,10 +62,14 @@ Each parameter must be one of {{8, 16, 24, 32, 40, 48, 56, 64}}.\
 
 
 NATS_SYSTEM_PROMPTS = {
-    ("tss", "cifar10"): TSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-10"),
-    ("tss", "cifar100"): TSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-100"),
-    ("tss", "ImageNet16-120"): TSS_SYSTEM_TEMPLATE.format(dataset="ImageNet-16-120"),
-    ("sss", "cifar10"): SSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-10"),
-    ("sss", "cifar100"): SSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-100"),
-    ("sss", "ImageNet16-120"): SSS_SYSTEM_TEMPLATE.format(dataset="ImageNet-16-120")
+    ("tss", "cifar10"): TSS_SYSTEM_PROMPT_TEMPLATE.format(dataset="CIFAR-10"),
+    ("tss", "cifar100"): TSS_SYSTEM_PROMPT_TEMPLATE.format(dataset="CIFAR-100"),
+    ("tss", "ImageNet16-120"): TSS_SYSTEM_PROMPT_TEMPLATE.format(
+        dataset="ImageNet-16-120"
+    ),
+    ("sss", "cifar10"): SSS_SYSTEM_PROMPT_TEMPLATE.format(dataset="CIFAR-10"),
+    ("sss", "cifar100"): SSS_SYSTEM_PROMPT_TEMPLATE.format(dataset="CIFAR-100"),
+    ("sss", "ImageNet16-120"): SSS_SYSTEM_PROMPT_TEMPLATE.format(
+        dataset="ImageNet-16-120"
+    )
 }

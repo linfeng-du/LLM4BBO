@@ -1,4 +1,4 @@
-USER_TEMPLATE = """\
+USER_PROMPT_TEMPLATE = """\
 The following designs are provided as references, \
 along with their scores:
 

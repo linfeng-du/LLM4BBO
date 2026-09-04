@@ -1,11 +1,15 @@
+__all__ = ["SOO_SYSTEM_PROMPTS"]
+
+
 # Details in the GTOPX1-GTOPX7 prompts were verified and corrected against the GTOPX source code:
 # https://www.midaco-solver.com/data/gtopx/cpp/gtopx.cpp
+
 
 # Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L315-L321
-GTOPX1_SYSTEM_PROMPT = """\
+_GTOPX1_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -42,7 +46,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L322-L330
-GTOPX2_SYSTEM_PROMPT = """\
+_GTOPX2_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -95,7 +99,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L331-L339
-GTOPX3_SYSTEM_PROMPT = """\
+_GTOPX3_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -140,7 +144,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L340-L350
-GTOPX4_SYSTEM_PROMPT = """\
+_GTOPX4_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -193,7 +197,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L351-L357
-GTOPX5_SYSTEM_PROMPT = """\
+_GTOPX5_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -231,7 +235,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L358-L366
-GTOPX6_SYSTEM_PROMPT = """\
+_GTOPX6_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -284,7 +288,7 @@ The parameter bounds are:
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373
 # Planet code 9 is excluded because it causes out-of-bounds access in the source code.
-GTOPX7_SYSTEM_PROMPT = """\
+_GTOPX7_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
 Your task is to design a trajectory for a multiple gravity assist space mission \
@@ -337,7 +341,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/S0098-1354(98)00027-1
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L422-L428
-CEC1_SYSTEM_PROMPT = """\
+_CEC1_SYSTEM_PROMPT = """\
 You are an expert process systems engineer \
 specializing in alkylation process optimization. \
 Your task is to determine an optimal operating point for an alkylation unit \
@@ -373,7 +377,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L429-L435
-CEC2_SYSTEM_PROMPT = """\
+_CEC2_SYSTEM_PROMPT = """\
 You are an expert process systems engineer \
 specializing in process flowsheet optimization. \
 Your task is to find an optimal solution to a process flowsheet problem. \
@@ -400,7 +404,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L436-L442
-CEC3_SYSTEM_PROMPT = """\
+_CEC3_SYSTEM_PROMPT = """\
 You are an expert process systems engineer \
 specializing in process synthesis optimization. \
 Your task is to find an optimal solution to a process synthesis problem. \
@@ -427,7 +431,7 @@ The parameter bounds are:
 # https://doi.org/10.1007/s00366-011-0241-y
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L443-L449
-CEC4_SYSTEM_PROMPT = """\
+_CEC4_SYSTEM_PROMPT = """\
 You are an expert structural engineer specializing in truss design optimization. \
 Your task is to design a symmetric 3-bar truss \
 by determining its 2 independent cross-sectional area parameters. \
@@ -454,7 +458,7 @@ The parameter bounds are:
 # https://doi.org/10.1115/1.3438995
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L450-L456
-CEC5_SYSTEM_PROMPT = """\
+_CEC5_SYSTEM_PROMPT = """\
 You are an expert structural engineer specializing in welded beam design optimization. \
 Your task is to design a welded cantilever beam by determining its 4 parameters. \
 Your objective is to maximize the score of the beam design, \
@@ -478,16 +482,16 @@ The parameter bounds are:
 
 
 SOO_SYSTEM_PROMPTS = {
-    "GTOPX1": GTOPX1_SYSTEM_PROMPT,
-    "GTOPX2": GTOPX2_SYSTEM_PROMPT,
-    "GTOPX3": GTOPX3_SYSTEM_PROMPT,
-    "GTOPX4": GTOPX4_SYSTEM_PROMPT,
-    "GTOPX5": GTOPX5_SYSTEM_PROMPT,
-    "GTOPX6": GTOPX6_SYSTEM_PROMPT,
-    "GTOPX7": GTOPX7_SYSTEM_PROMPT,
-    "CEC1": CEC1_SYSTEM_PROMPT,
-    "CEC2": CEC2_SYSTEM_PROMPT,
-    "CEC3": CEC3_SYSTEM_PROMPT,
-    "CEC4": CEC4_SYSTEM_PROMPT,
-    "CEC5": CEC5_SYSTEM_PROMPT
+    "GTOPX1": _GTOPX1_SYSTEM_PROMPT,
+    "GTOPX2": _GTOPX2_SYSTEM_PROMPT,
+    "GTOPX3": _GTOPX3_SYSTEM_PROMPT,
+    "GTOPX4": _GTOPX4_SYSTEM_PROMPT,
+    "GTOPX5": _GTOPX5_SYSTEM_PROMPT,
+    "GTOPX6": _GTOPX6_SYSTEM_PROMPT,
+    "GTOPX7": _GTOPX7_SYSTEM_PROMPT,
+    "CEC1": _CEC1_SYSTEM_PROMPT,
+    "CEC2": _CEC2_SYSTEM_PROMPT,
+    "CEC3": _CEC3_SYSTEM_PROMPT,
+    "CEC4": _CEC4_SYSTEM_PROMPT,
+    "CEC5": _CEC5_SYSTEM_PROMPT
 }

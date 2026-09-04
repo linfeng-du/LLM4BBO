@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
 from .base import BenchmarkTask, register_tasks
-# from .prompts import DESIGN_SYSTEM_PROMPTS
+from .prompts import DESIGN_SYSTEM_PROMPTS
 
 
 TASK_SPECS = {

@@ -1,3 +1,6 @@
+__all__ = ["USER_PROMPT_TEMPLATE"]
+
+
 USER_PROMPT_TEMPLATE = """\
 The following designs and their scores are provided for reference:
 

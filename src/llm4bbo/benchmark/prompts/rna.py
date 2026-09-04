@@ -1,3 +1,6 @@
+__all__ = ["RNA_SYSTEM_PROMPT_TEMPLATE"]
+
+
 # Task and objective: Kim et al. (2023), Appendix A.1.
 # https://doi.org/10.52202/075280-2958
 RNA_SYSTEM_PROMPT_TEMPLATE = """\

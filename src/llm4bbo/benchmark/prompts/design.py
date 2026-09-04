@@ -1,10 +1,13 @@
+__all__ = ["DESIGN_SYSTEM_PROMPTS"]
+
+
 # Task and objective: Trabucco et al. (2022), Section 4.
 # https://proceedings.mlr.press/v162/trabucco22a.html
 # Original experimental study: Barrera et al. (2016).
 # https://doi.org/10.1126/science.aad2257
 # Original data source: BAR15A_contig8mers.zip/SIX6/SIX6_REF/SIX6_REF_R1/SIX6_REF_R1_8mers.txt
 # https://thebrain.bwh.harvard.edu/uniprobe/downloads/BAR15A/BAR15A_contig8mers.zip
-TFBIND8_SYSTEM_PROMPT = """\
+_TFBIND8_SYSTEM_PROMPT = """\
 You are an expert molecular biologist \
 specializing in transcription factor-DNA binding and DNA sequence design. \
 Your task is to design a DNA sequence of exactly 8 bases using only A, C, G, and T. \
@@ -19,7 +22,7 @@ for the human transcription factor SIX6.\
 # https://doi.org/10.1073/pnas.1715888115
 # Original data source: BETseq_processed_data.tar.gz/data/Manuscript_Data/all_predicted_ddGs.csv
 # https://figshare.com/ndownloader/files/10071876
-TFBIND10_SYSTEM_PROMPT = """\
+_TFBIND10_SYSTEM_PROMPT = """\
 You are an expert molecular biologist \
 specializing in transcription factor-DNA binding and DNA sequence design. \
 Your task is to design a DNA sequence of exactly 10 bases using only A, C, G, and T. \
@@ -35,7 +38,7 @@ for the yeast transcription factor Pho4.\
 # Parameter semantics, bounds, and model structure:
 # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/ant/elements.py#L4-L55
 # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/ant/env.py#L43-L147
-ANT_SYSTEM_PROMPT = """\
+_ANT_SYSTEM_PROMPT = """\
 You are an expert robotics engineer specializing in quadruped robot morphology design. \
 Your task is to design a morphology for the Ant quadruped robot. \
 Your objective is to maximize the robot's forward locomotion performance.
@@ -74,7 +77,7 @@ The parameter bounds for each leg block are:
 # Parameter semantics, bounds, and model structure:
 # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/elements.py#L8-L56
 # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L111-L239
-DKITTY_SYSTEM_PROMPT = """\
+_DKITTY_SYSTEM_PROMPT = """\
 You are an expert robotics engineer specializing in quadruped robot morphology design. \
 Your task is to design a morphology for the D'Kitty quadruped robot. \
 Your objective is to maximize the robot's navigation performance \
@@ -112,8 +115,8 @@ The parameter bounds for each leg block are:
 
 
 DESIGN_SYSTEM_PROMPTS = {
-    "TFBind8-Exact-v0": TFBIND8_SYSTEM_PROMPT,
-    "TFBind10-Exact-v0": TFBIND10_SYSTEM_PROMPT,
-    "AntMorphology-Exact-v0": ANT_SYSTEM_PROMPT,
-    "DKittyMorphology-Exact-v0": DKITTY_SYSTEM_PROMPT
+    "TFBind8-Exact-v0": _TFBIND8_SYSTEM_PROMPT,
+    "TFBind10-Exact-v0": _TFBIND10_SYSTEM_PROMPT,
+    "AntMorphology-Exact-v0": _ANT_SYSTEM_PROMPT,
+    "DKittyMorphology-Exact-v0": _DKITTY_SYSTEM_PROMPT
 }

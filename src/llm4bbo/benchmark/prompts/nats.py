@@ -1,7 +1,7 @@
 __all__ = ["NATS_SYSTEM_PROMPTS"]
 
 
-# Task and objective: Dong et al. (2022), Sections 3.1 and 3.2.
+# Task and objective: Dong et al. (2022), Sections 3.1 and 3.2
 # https://doi.org/10.1109/TPAMI.2021.3054824
 # Operators and number of nodes:
 # https://github.com/D-X-Y/NATS-Bench/blob/main/nats_bench/__init__.py#L64-L73
@@ -36,7 +36,7 @@ The parameter values encode operations as follows:
 """
 
 
-# Task and objective: Dong et al. (2022), Sections 3.1 and 3.2.
+# Task and objective: Dong et al. (2022), Sections 3.1 and 3.2
 # https://doi.org/10.1109/TPAMI.2021.3054824
 # Number of channels and layers:
 # https://github.com/D-X-Y/NATS-Bench/blob/main/nats_bench/__init__.py#L63

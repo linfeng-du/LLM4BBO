@@ -5,7 +5,7 @@ __all__ = ["SOO_SYSTEM_PROMPTS"]
 # https://www.midaco-solver.com/data/gtopx/cpp/gtopx.cpp
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.1 and Table 2
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L315-L321
@@ -42,7 +42,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.2 and Table 3.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.2 and Table 3
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L322-L330
@@ -95,7 +95,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.3 and Table 4.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.3 and Table 4
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L331-L339
@@ -140,7 +140,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.4 and Table 5.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.4 and Table 5
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L340-L350
@@ -193,7 +193,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.5 and Table 6.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.5 and Table 6
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L351-L357
@@ -231,7 +231,7 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.6 and Table 7.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.6 and Table 7
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L358-L366
@@ -283,11 +283,11 @@ The parameter bounds are:
 """
 
 
-# Task and parameter semantics: Schlueter et al. (2021), Section 2.8 and Tables 9 and 10.
+# Task and parameter semantics: Schlueter et al. (2021), Section 2.8 and Tables 9 and 10
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373
-# Planet code 9 is excluded because it causes out-of-bounds access in the source code.
+# Planet code 9 is excluded because it causes out-of-bounds access in the source code
 _GTOPX7_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
@@ -335,9 +335,9 @@ The parameter bounds are:
 """
 
 
-# Task definition: Kumar et al. (2020), Section 2.1.6.
+# Task definition: Kumar et al. (2020), Section 2.1.6
 # https://doi.org/10.1016/j.swevo.2020.100693
-# Parameter semantics: Adjiman et al. (1998), Section 4.
+# Parameter semantics: Adjiman et al. (1998), Section 4
 # https://doi.org/10.1016/S0098-1354(98)00027-1
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L422-L428
@@ -373,7 +373,7 @@ The parameter bounds are:
 """
 
 
-# Task definition: Kumar et al. (2020), Section 2.2.3.
+# Task definition: Kumar et al. (2020), Section 2.2.3
 # https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L429-L435
@@ -400,7 +400,7 @@ The parameter bounds are:
 """
 
 
-# Task definition: Kumar et al. (2020), Section 2.2.1.
+# Task definition: Kumar et al. (2020), Section 2.2.1
 # https://doi.org/10.1016/j.swevo.2020.100693
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L436-L442
@@ -425,9 +425,9 @@ The parameter bounds are:
 """
 
 
-# Task definition: Kumar et al. (2020), Section 2.3.6.
+# Task definition: Kumar et al. (2020), Section 2.3.6
 # https://doi.org/10.1016/j.swevo.2020.100693
-# Parameter semantics: Gandomi et al. (2013), Section 3.2.7 and Figure 9.
+# Parameter semantics: Gandomi et al. (2013), Section 3.2.7 and Figure 9
 # https://doi.org/10.1007/s00366-011-0241-y
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L443-L449
@@ -452,9 +452,9 @@ The parameter bounds are:
 """
 
 
-# Task definition: Kumar et al. (2020), Section 2.3.5.
+# Task definition: Kumar et al. (2020), Section 2.3.5
 # https://doi.org/10.1016/j.swevo.2020.100693
-# Parameter semantics: Ragsdell and Phillips (1976), Nomenclature.
+# Parameter semantics: Ragsdell and Phillips (1976), Nomenclature
 # https://doi.org/10.1115/1.3438995
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L450-L456

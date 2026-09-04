@@ -1,9 +1,9 @@
 __all__ = ["DESIGN_SYSTEM_PROMPTS"]
 
 
-# Task and objective: Trabucco et al. (2022), Section 4.
+# Task and objective: Trabucco et al. (2022), Section 4
 # https://proceedings.mlr.press/v162/trabucco22a.html
-# Original experimental study: Barrera et al. (2016).
+# Original experimental study: Barrera et al. (2016)
 # https://doi.org/10.1126/science.aad2257
 # Original data source: BAR15A_contig8mers.zip/SIX6/SIX6_REF/SIX6_REF_R1/SIX6_REF_R1_8mers.txt
 # https://thebrain.bwh.harvard.edu/uniprobe/downloads/BAR15A/BAR15A_contig8mers.zip
@@ -16,9 +16,9 @@ for the human transcription factor SIX6.\
 """
 
 
-# Task and objective: Angermueller et al. (2020), Section 5.
+# Task and objective: Angermueller et al. (2020), Section 5
 # https://proceedings.mlr.press/v119/angermueller20a.html
-# Original experimental study: Le et al. (2018).
+# Original experimental study: Le et al. (2018)
 # https://doi.org/10.1073/pnas.1715888115
 # Original data source: BETseq_processed_data.tar.gz/data/Manuscript_Data/all_predicted_ddGs.csv
 # https://figshare.com/ndownloader/files/10071876
@@ -33,7 +33,7 @@ for the yeast transcription factor Pho4.\
 """
 
 
-# Task and objective: Trabucco et al. (2022), Section 4.
+# Task and objective: Trabucco et al. (2022), Section 4
 # https://proceedings.mlr.press/v162/trabucco22a.html
 # Parameter semantics, bounds, and model structure:
 # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/ant/elements.py#L4-L55
@@ -72,7 +72,7 @@ The parameter bounds for each leg block are:
 """
 
 
-# Task and objective: Trabucco et al. (2022), Section 4.
+# Task and objective: Trabucco et al. (2022), Section 4
 # https://proceedings.mlr.press/v162/trabucco22a.html
 # Parameter semantics, bounds, and model structure:
 # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/elements.py#L8-L56

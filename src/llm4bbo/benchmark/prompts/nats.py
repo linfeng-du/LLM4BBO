@@ -64,12 +64,8 @@ Each parameter must be one of {{8, 16, 24, 32, 40, 48, 56, 64}}.\
 NATS_SYSTEM_PROMPTS = {
     ("tss", "cifar10"): TSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-10"),
     ("tss", "cifar100"): TSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-100"),
-    ("tss", "ImageNet16-120"): TSS_SYSTEM_TEMPLATE.format(
-        dataset="ImageNet-16-120"
-    ),
+    ("tss", "ImageNet16-120"): TSS_SYSTEM_TEMPLATE.format(dataset="ImageNet-16-120"),
     ("sss", "cifar10"): SSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-10"),
     ("sss", "cifar100"): SSS_SYSTEM_TEMPLATE.format(dataset="CIFAR-100"),
-    ("sss", "ImageNet16-120"): SSS_SYSTEM_TEMPLATE.format(
-        dataset="ImageNet-16-120"
-    )
+    ("sss", "ImageNet16-120"): SSS_SYSTEM_TEMPLATE.format(dataset="ImageNet-16-120")
 }

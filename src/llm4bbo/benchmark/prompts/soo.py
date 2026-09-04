@@ -283,6 +283,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373
+# Planet code 9 is excluded because it causes out-of-bounds access in the source code.
 GTOPX7_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \

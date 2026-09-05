@@ -1,7 +1,7 @@
 __all__ = ["SOO_SYSTEM_PROMPTS"]
 
 
-# Details in the GTOPX1-GTOPX7 prompts were verified and corrected against the GTOPX source code:
+# GTOPX1-GTOPX7 prompt details were verified and corrected against the source code:
 # https://www.midaco-solver.com/data/gtopx/cpp/gtopx.cpp
 
 

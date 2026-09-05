@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from packaging.version import Version
 
 
-def _silence_excessive_logs() -> None:
+def _silence_noisy_output() -> None:
     logging.getLogger().addFilter(_RobelMujocoFilter())
     warnings.filterwarnings("ignore", module=r"gym")
     warnings.filterwarnings("ignore", message=r"pkg_resources is deprecated")
@@ -20,12 +20,12 @@ class _RobelMujocoFilter(logging.Filter):
         return not record.getMessage().startswith(("[-0.  1.]", "MuJoCo"))
 
 
-def _patch_collections() -> None:
+def _patch_collections_mapping() -> None:
     if sys.version_info >= (3, 10):
         collections.Mapping = collections.abc.Mapping
 
 
-def _patch_numpy() -> None:
+def _patch_numpy_inf() -> None:
     import numpy as np
 
     if Version(np.__version__) >= Version("2.0"):
@@ -33,7 +33,7 @@ def _patch_numpy() -> None:
         np.PINF = np.inf
 
 
-def _patch_deepchem() -> None:
+def _patch_smiles_tokenizer_init() -> None:
     with _silence_stdout_stderr():
         from deepchem.feat.smiles_tokenizer import (
             BasicSmilesTokenizer,
@@ -41,7 +41,7 @@ def _patch_deepchem() -> None:
             load_vocab
         )
 
-    # https://github.com/deepchem/deepchem/blob/2.8.0/deepchem/feat/smiles_tokenizer.py#L68
+    # https://github.com/deepchem/deepchem/blob/2.8.0/deepchem/feat/smiles_tokenizer.py#L68-L99
     def __init__(
         self,
         vocab_file: str = '',
@@ -99,7 +99,38 @@ def _silence_stdout_stderr() -> Generator[None, None, None]:
         os.close(stderr_fd)
 
 
-_silence_excessive_logs()
-_patch_collections()
-_patch_numpy()
-_patch_deepchem()
+def _patch_dkitty_env_init() -> None:
+    from morphing_agents.mujoco.dkitty.env import DKittyEnv
+
+    original_init = DKittyEnv.__init__
+
+    def __init__(self, *args, **kwargs) -> None:
+        original_init(self, *args, **kwargs)
+
+        # Upstream writes XML to a file, then RobotEnv loads it to create the model
+        # The following blocks write incorrect XML ranges using hip_range instead of thigh_range:
+        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L130-L137
+        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L161-L168
+        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L192-L199
+        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L223-L230
+        thigh_names = ("A:FRJ11", "A:FLJ21", "A:BLJ31", "A:BRJ41")
+
+        for leg, thigh_name in zip(self._legs, thigh_names):
+            thigh_range = (
+                leg.thigh_center - leg.thigh_range,
+                leg.thigh_center + leg.thigh_range
+            )
+
+            joint_id = self.model.joint_name2id(thigh_name)
+            actuator_id = self.model.actuator_name2id(thigh_name)
+            self.model.jnt_range[joint_id] = thigh_range
+            self.model.actuator_ctrlrange[actuator_id] = thigh_range
+
+    DKittyEnv.__init__ = __init__
+
+
+_silence_noisy_output()
+_patch_collections_mapping()
+_patch_numpy_inf()
+_patch_smiles_tokenizer_init()
+_patch_dkitty_env_init()

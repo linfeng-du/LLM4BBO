@@ -1,7 +1,7 @@
 __all__ = [
     "DESIGN_GENERATION_PROMPT_TEMPLATE",
     "TOOL_USE_PROMPT_TEMPLATE",
-    "TRACE_GENERATION_PROMPT_TEMPLATE",
+    "TRAJECTORY_GENERATION_PROMPT_TEMPLATE",
     "USER_PROMPT_TEMPLATE"
 ]
 
@@ -15,20 +15,20 @@ Use this information to guide your subsequent reasoning.\
 """
 
 
-TRACE_GENERATION_PROMPT_TEMPLATE = """\
-Produce a structured reasoning trace that naturally leads to the target design below, \
+TRAJECTORY_GENERATION_PROMPT_TEMPLATE = """\
+Produce a complete trajectory that naturally leads to the target design below, \
 which is known to outperform all provided examples:
 
 {target}
 
-Use the following structure for the reasoning trace:
+Use the following structure for the trajectory:
 - Wrap each reasoning segment in <think></think> tags.
 - Wrap each tool call in <tool_call></tool_call> tags.
 - Wrap each corresponding tool response in <tool_response></tool_response> tags.
 - After each tool response, continue with a new <think></think> block.
 - Enclose the final design in <design></design> tags.
 
-Follow these requirements for the reasoning trace:
+Follow these requirements for the trajectory:
 - Each reasoning segment wrapped in <think></think> tags \
 must not exceed {thinking_budget} tokens.
 - Do not mention or imply that the target design was provided or known in advance.

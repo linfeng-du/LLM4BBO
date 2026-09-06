@@ -100,6 +100,9 @@ class DesignBenchTask(BenchmarkTask):
 
     def _predict(self, x: np.ndarray) -> np.ndarray:
         if self.task_name == "TFBind10-Exact-v0":
+            if x.ndim != 2:
+                raise ValueError(f"x must be a 2D array, got shape {x.shape}")
+
             return self._tfbind10_scores[x @ self._tfbind10_weights]
 
         return self._task.predict(x)

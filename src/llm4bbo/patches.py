@@ -33,6 +33,7 @@ def _patch_numpy_inf() -> None:
         np.PINF = np.inf
 
 
+# Only fixes import-time errors; SmilesTokenizer is not used in the project
 def _patch_smiles_tokenizer_init() -> None:
     with _silence_stdout_stderr():
         from deepchem.feat.smiles_tokenizer import (
@@ -81,6 +82,9 @@ def _patch_smiles_tokenizer_init() -> None:
 
 @contextmanager
 def _silence_stdout_stderr() -> Generator[None, None, None]:
+    sys.stdout.flush()
+    sys.stderr.flush()
+
     devnull_fd = os.open(os.devnull, os.O_WRONLY)
     stdout_fd = os.dup(sys.stdout.fileno())
     stderr_fd = os.dup(sys.stderr.fileno())
@@ -91,12 +95,17 @@ def _silence_stdout_stderr() -> Generator[None, None, None]:
         yield
 
     finally:
-        os.dup2(stdout_fd, sys.stdout.fileno())
-        os.dup2(stderr_fd, sys.stderr.fileno())
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
 
-        os.close(devnull_fd)
-        os.close(stdout_fd)
-        os.close(stderr_fd)
+        finally:
+            os.dup2(stdout_fd, sys.stdout.fileno())
+            os.dup2(stderr_fd, sys.stderr.fileno())
+
+            os.close(devnull_fd)
+            os.close(stdout_fd)
+            os.close(stderr_fd)
 
 
 def _patch_dkitty_env_init() -> None:

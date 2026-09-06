@@ -20,6 +20,13 @@ from tqdm import tqdm
 import numpy as np
 from transformers.pipelines.text_generation import ChatType
 
+from .prompts.common import (
+    DESIGN_GENERATION_PROMPT_TEMPLATE,
+    TOOL_USE_PROMPT_TEMPLATE,
+    TRAJECTORY_GENERATION_PROMPT_TEMPLATE,
+    USER_PROMPT_TEMPLATE
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +64,6 @@ class BenchmarkTask(ABC):
     num_designs: int
     sample_indices: np.ndarray
     system_prompt: str
-    user_prompt: str
 
     def __init__(self, x_offline: np.ndarray) -> None:
         if x_offline.shape != (len(x_offline), self.design_dim):
@@ -92,6 +98,7 @@ class BenchmarkTask(ABC):
         self,
         x_references: np.ndarray,
         y_references: np.ndarray,
+        thinking_budget: int,
         max_tool_calls: int | None = None,
         x_target: np.ndarray | None = None
     ) -> ChatType:
@@ -103,15 +110,23 @@ class BenchmarkTask(ABC):
                 raise ValueError("max_tool_calls must be positive")
 
             system_prompt_parts.append(
-                TOOL_USE_PROMPT.format(max_tool_calls=max_tool_calls)
+                TOOL_USE_PROMPT_TEMPLATE.format(max_tool_calls=max_tool_calls)
             )
 
         if x_target is not None:
-            # Reasoning trace generation for the given target design
-            target = self.render_design(x_target)
-            system_prompt_parts.append(TRACE_GENERATION_PROMPT.format(target=target))
-
-        system_prompt_parts.append(FINAL_INSTRUCTION_PROMPT)
+            # Generate a complete trajectory ending with the given target design
+            system_prompt_parts.append(
+                TRAJECTORY_GENERATION_PROMPT_TEMPLATE.format(
+                    target=self.render_design(x_target),
+                    thinking_budget=thinking_budget
+                )
+            )
+        else:
+            system_prompt_parts.append(
+                DESIGN_GENERATION_PROMPT_TEMPLATE.format(
+                    thinking_budget=thinking_budget
+                )
+            )
 
         references = "\n".join(
             self.render_example(x, y)
@@ -119,7 +134,7 @@ class BenchmarkTask(ABC):
         )
 
         system_prompt = "\n\n".join(system_prompt_parts)
-        user_prompt = self.user_prompt.format(references=references)
+        user_prompt = USER_PROMPT_TEMPLATE.format(references=references)
 
         return [
             {"role": "system", "content": system_prompt},
@@ -127,8 +142,7 @@ class BenchmarkTask(ABC):
         ]
 
     def create_completion_messages(self, x_response: np.ndarray) -> ChatType:
-        response = self.render_design(x_response)
-        return [{"role": "assistant", "content": response}]
+        return [{"role": "assistant", "content": self.render_design(x_response)}]
 
     def parse_completions(
         self,
@@ -195,45 +209,22 @@ class BenchmarkTask(ABC):
         ...
 
 
-_worker_predict = None
+def _evenly_ranked_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
+    ranked_indices = y.squeeze(-1).argsort()
+    evenly_spaced_ranks = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
+    return ranked_indices[evenly_spaced_ranks]
 
 
-def _init_worker_predict(predict: Callable) -> None:
+_worker_predict: Callable[[np.ndarray], np.ndarray] | None = None
+
+
+def _init_worker_predict(predict: Callable[[np.ndarray], np.ndarray]) -> None:
     global _worker_predict
     _worker_predict = predict
 
 
 def _predict_one(x: np.ndarray) -> np.ndarray:
+    if _worker_predict is None:
+        raise RuntimeError("_worker_predict is not initialized")
+
     return _worker_predict(x.reshape(1, -1))
-
-
-def _select_evenly_spaced_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
-    sorted_indices = y.squeeze(-1).argsort()
-    spaced_indices = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
-    return sorted_indices[spaced_indices]
-
-
-TOOL_USE_PROMPT = """\
-You may use the `predict_score` tool \
-to evaluate up to {max_tool_calls} intermediate designs. \
-The tool returns the predicted score and uncertainty for each design. \
-Use these results to continue your reasoning.\
-"""
-
-TRACE_GENERATION_PROMPT = """\
-Generate a reasoning trace that arrives at the target design below. \
-The target design is known to outperform all provided examples.
-
-Target design: {target}
-
-Treat the target design as the outcome of your own analysis. \
-Do not mention or imply that it was supplied in advance. \
-Conclude with the target design as your final answer.\
-"""
-
-FINAL_INSTRUCTION_PROMPT = """\
-Reason step-by-step, \
-but keep your reasoning concise, \
-preferably within 500 tokens. \
-Enclose the final design in <design></design> XML tags.\
-"""

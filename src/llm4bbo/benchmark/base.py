@@ -26,10 +26,10 @@ from .prompts.common import (
     TRAJECTORY_GENERATION_PROMPT_TEMPLATE,
     USER_PROMPT_TEMPLATE
 )
+from .utils import evenly_ranked_indices, parse_categorical, parse_numerical
 
 
 logger = logging.getLogger(__name__)
-
 
 _REGISTRY: dict[str, type[BenchmarkTask]] = {}
 
@@ -59,30 +59,40 @@ _NUM_PREDICT_WORKERS = len(os.sched_getaffinity(0))
 
 class BenchmarkTask(ABC):
     benchmark: str
-    task_name: str
-    design_dim: int
-    num_designs: int
-    sample_indices: np.ndarray
-    system_prompt: str
+    score_precision: int
 
-    def __init__(self, x_offline: np.ndarray) -> None:
-        if x_offline.shape != (len(x_offline), self.design_dim):
-            raise ValueError(
-                "x_offline must have shape "
-                f"({len(x_offline)}, {self.design_dim}), got {x_offline.shape}"
-            )
+    def __init__(
+        self,
+        task_name: str,
+        num_designs: int,
+        system_prompt: str,
+        x_offline: np.ndarray,
+        categories: list[str] | None = None,
+        allowed_values: list[int] | None = None
+    ) -> None:
+        if x_offline.ndim != 2:
+            raise ValueError("x_offline must be a 2D array")
 
-        if not 0 < self.num_designs <= len(x_offline):
+        if not 0 < num_designs <= len(x_offline):
             raise ValueError(f"num_designs must be in [1, {len(x_offline)}]")
 
+        if categories is not None and allowed_values is not None:
+            raise ValueError("categories and allowed_values must not both be set")
+
+        self.task_name = task_name
+        self.design_dim = x_offline.shape[1]
+        self.num_designs = num_designs
+
+        self.categories = categories
+        self.allowed_values = allowed_values
+
+        self.system_prompt = system_prompt
+
         self.x_offline = x_offline
+        cache_path = self.data_dir / f"{self.task_name}_y_offline.npy"
+        self.y_offline = self.predict(self.x_offline, cache_path=cache_path)
 
-        self.y_offline = self.predict(
-            self.x_offline,
-            cache_path=self.data_dir / f"{self.task_name}_y_offline.npy"
-        )
-
-        self.sample_indices = _evenly_ranked_indices(self.y_offline, self.num_designs)
+        self.sample_indices = evenly_ranked_indices(self.y_offline, self.num_designs)
         self.x = self.x_offline[self.sample_indices]
         self.y = self.y_offline[self.sample_indices]
 
@@ -117,7 +127,7 @@ class BenchmarkTask(ABC):
             # Generate a complete trajectory ending with the given target design
             system_prompt_parts.append(
                 TRAJECTORY_GENERATION_PROMPT_TEMPLATE.format(
-                    target=self.render_design(x_target),
+                    target=self._render_design(x_target),
                     thinking_budget=thinking_budget
                 )
             )
@@ -129,7 +139,7 @@ class BenchmarkTask(ABC):
             )
 
         references = "\n".join(
-            self.render_example(x, y)
+            self._render_example(x, y)
             for x, y in zip(x_references, y_references, strict=True)
         )
 
@@ -142,18 +152,7 @@ class BenchmarkTask(ABC):
         ]
 
     def create_completion_messages(self, x_response: np.ndarray) -> ChatType:
-        return [{"role": "assistant", "content": self.render_design(x_response)}]
-
-    def parse_completions(
-        self,
-        completions: list[str]
-    ) -> tuple[np.ndarray, np.ndarray]:
-        if not completions:
-            raise ValueError("completions must not be empty")
-
-        results = [self._parse_completion(c) for c in completions]
-        designs, valid_flags = zip(*results, strict=True)
-        return np.array(designs), np.array(valid_flags)
+        return [{"role": "assistant", "content": self._render_design(x_response)}]
 
     def predict(self, x: np.ndarray, cache_path: Path | None = None) -> np.ndarray:
         if cache_path is None:
@@ -184,35 +183,60 @@ class BenchmarkTask(ABC):
             )
             y = np.concatenate(list(prediction_iter))
 
-            np.save(cache_path, y)
-            logger.info("Saved predictions to cache: %s", cache_path)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(cache_path, y)
+        logger.info("Saved predictions to cache: %s", cache_path)
 
         return y
 
-    @abstractmethod
-    def render_design(self, x: np.ndarray) -> str:
-        ...
+    def evaluate(self, completions: list[str]) -> tuple[np.ndarray, int]:
+        designs, valid_flags = self._parse_completions(completions)
+        scores = np.full((len(designs), 1), self.y_offline.min())
 
-    @abstractmethod
-    def render_example(self, x: np.ndarray, y: np.ndarray) -> str:
-        ...
+        if valid_flags.any():
+            scores[valid_flags] = self.predict(designs[valid_flags])
 
-    @abstractmethod
-    def _parse_completion(
+        num_valid = int(valid_flags.sum())
+        return scores, num_valid
+
+    def _render_design(self, x: np.ndarray) -> str:
+        if self.categories is not None:
+            # Preserve the quotes around each character for categorical values
+            return f"<design>{[self.categories[c] for c in x]}</design>"
+
+        # Use the shortest round-trip representation for numerical values
+        return f"<design>[{', '.join(str(p) for p in x)}]</design>"
+
+    def _render_example(self, x: np.ndarray, y: np.ndarray) -> str:
+        return (
+            f"{self._render_design(x)}, "
+            f"Score: {round(y.item(), self.score_precision)}"
+        )
+
+    def _parse_completions(
         self,
-        completion: str
-    ) -> tuple[list[int] | list[float], bool]:
-        ...
+        completions: list[str]
+    ) -> tuple[np.ndarray, np.ndarray]:
+        if not completions:
+            raise ValueError("completions must not be empty")
+
+        if self.categories is not None:
+            results = [
+                parse_categorical(c, self.design_dim, self.categories)
+                for c in completions
+            ]
+        else:
+            results = [
+                parse_numerical(c, self.design_dim, self.allowed_values)
+                for c in completions
+            ]
+
+        designs, valid_flags = zip(*results, strict=True)
+        return np.array(designs, dtype=self.x_offline.dtype), np.array(valid_flags)
 
     @abstractmethod
     def _predict(self, x: np.ndarray) -> np.ndarray:
         ...
-
-
-def _evenly_ranked_indices(y: np.ndarray, num_designs: int) -> np.ndarray:
-    ranked_indices = y.squeeze(-1).argsort()
-    evenly_spaced_ranks = np.linspace(0, len(y) - 1, num_designs).round().astype(int)
-    return ranked_indices[evenly_spaced_ranks]
 
 
 _worker_predict: Callable[[np.ndarray], np.ndarray] | None = None

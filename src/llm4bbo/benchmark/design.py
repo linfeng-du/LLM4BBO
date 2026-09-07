@@ -66,7 +66,13 @@ class DesignBenchTask(BenchmarkTask):
             cache_path = self.data_dir / f"{self.task_name}_y.npy"
             y_all = self.predict(x_all, cache_path=cache_path)
 
-        self.oracle_scaler = MinMaxScaler().fit(y_all)
+        # Normalize predicted scores using the range of all targets
+        self._oracle_scaler = MinMaxScaler().fit(y_all)
+
+    def evaluate(self, completions: list[str]) -> tuple[np.ndarray, int]:
+        raw_scores, num_valid = super().evaluate(completions)
+        scores = self._oracle_scaler.transform(raw_scores)
+        return scores, num_valid
 
     def _predict(self, x: np.ndarray) -> np.ndarray:
         if self.task_name == "TFBind10-Exact-v0":

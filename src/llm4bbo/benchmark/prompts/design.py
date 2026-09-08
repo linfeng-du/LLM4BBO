@@ -20,7 +20,7 @@ for the human transcription factor SIX6.\
 # https://proceedings.mlr.press/v119/angermueller20a.html
 # Original experimental study: Le et al. (2018)
 # https://doi.org/10.1073/pnas.1715888115
-# Original data source: BETseq_processed_data.tar.gz/data/Manuscript_Data/all_predicted_ddGs.csv
+# Original data source: BETseq_processed_data.tar.gz/data/Manuscript_Data/all_predicted_ddGs.csv.gz
 # https://figshare.com/ndownloader/files/10071876
 _TFBIND10_SYSTEM_PROMPT = """\
 You are an expert molecular biologist \

@@ -21,6 +21,7 @@ _DESIGN_PATTERN = re.compile(r"<design>(.*?)</design>", re.DOTALL)
 
 # Supported formats:
 # <design>['A', 'C', 'G', 'T']</design>
+# <design>[A, C, G, T]</design>
 # <design>ACGT</design>
 # <design>'ACGT'</design>
 def parse_categorical(
@@ -36,8 +37,14 @@ def parse_categorical(
     try:
         design = ast.literal_eval(matches[-1])
     except Exception:
-        # Handle cases like <design>ACGT</design>
-        design = list(matches[-1].strip())
+        text = matches[-1].strip()
+
+        if text.startswith("[") and text.endswith("]"):
+            # Handle cases like <design>[A, C, G, T]</design>
+            design = [item.strip() for item in text[1:-1].split(",")]
+        else:
+            # Handle cases like <design>ACGT</design>
+            design = list(text)
 
     if isinstance(design, str):
         # Handle cases like <design>'ACGT'</design>

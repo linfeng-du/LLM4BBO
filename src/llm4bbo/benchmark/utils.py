@@ -53,7 +53,7 @@ def parse_categorical(
     if (
         not isinstance(design, list)
         or len(design) != design_dim
-        or not all(c in categories for c in design)
+        or not all(cat in categories for cat in design)
     ):
         return [0] * design_dim, False
 

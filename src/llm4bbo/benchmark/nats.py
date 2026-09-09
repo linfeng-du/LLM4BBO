@@ -86,6 +86,8 @@ class NATSBenchTask(BenchmarkTask):
             allowed_values=allowed_values
         )
 
+    # Following the NATS-Bench paper,
+    # use validation accuracy for optimization and test accuracy for final evaluation
     def predict(
         self,
         x: np.ndarray,

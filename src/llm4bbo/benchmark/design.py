@@ -65,7 +65,7 @@ class DesignBenchTask(BenchmarkTask):
 
         if self.task_name != "TFBind10-Exact-v0":
             cache_path = self.data_dir / f"{self.task_name}_y.npy"
-            y_all = self.predict(x_all, cache_path=cache_path)
+            y_all = self._cached_parallel_predict(x_all, cache_path)
 
         # Normalize predicted scores using the range of all targets
         self._oracle_scaler = MinMaxScaler().fit(y_all)
@@ -75,7 +75,7 @@ class DesignBenchTask(BenchmarkTask):
         scores = self._oracle_scaler.transform(raw_scores)
         return scores, num_valid
 
-    def _predict(self, x: np.ndarray) -> np.ndarray:
+    def predict(self, x: np.ndarray) -> np.ndarray:
         if self.task_name == "TFBind10-Exact-v0":
             if x.ndim != 2:
                 raise ValueError(f"x must be a 2D array, got shape {x.shape}")

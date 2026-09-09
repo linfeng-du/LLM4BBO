@@ -1,8 +1,10 @@
 __all__ = ["NATSBenchTask"]
 
-from itertools import product
+from typing import Literal
 
 import nats_bench
+from nats_bench.genotype_utils import topology_str2structure
+
 import numpy as np
 
 from .base import BenchmarkTask, register_tasks
@@ -32,6 +34,7 @@ class NATSBenchTask(BenchmarkTask):
     def __init__(self, task_key: str, num_designs: int) -> None:
         self._search_space, self._dataset = _TASK_METADATA[task_key]
         task_name = f"{self._search_space}-{self._dataset}"
+
         self._info = nats_bench.search_space_info("nats-bench", self._search_space)
 
         self._api = nats_bench.create(
@@ -40,29 +43,39 @@ class NATSBenchTask(BenchmarkTask):
             fast_mode=True
         )
 
-        if self._search_space == "tss":
-            op_names = self._info["op_names"]
-            num_nodes = self._info["num_nodes"]
+        # Gather all designs
+        designs = []
 
-            values = list(range(len(op_names)))
-            design_dim = num_nodes * (num_nodes - 1) // 2
-            categories = op_names
-            allowed_values = None
-        else:
-            values = self._info["candidates"]
-            design_dim = self._info["num_layers"]
-            categories = None
-            allowed_values = values
+        for i in range(len(self._api)):
+            architecture = self._api.arch(i)
+
+            if self._search_space == "tss":
+                structure = topology_str2structure(architecture)
+                designs.append([
+                    self._info["op_names"].index(op)
+                    for node in structure.nodes
+                    for op, _ in node
+                ])
+            else:
+                designs.append(list(map(int, architecture.split(":"))))
+
+        x_all = np.array(designs)
 
         # Compute scores for all designs
-        x_all = np.array(list(product(values, repeat=design_dim)))
         cache_path = self.data_dir / f"{task_name}_y.npy"
-        y_all = self.predict(x_all, cache_path=cache_path)
+        y_all = self._cached_parallel_predict(x_all, cache_path)
 
         # Use designs in the lower 50th percentile as the offline dataset
         size = len(y_all) // 2
         indices = y_all.squeeze(-1).argpartition(size)[:size]
         x_offline = x_all[indices]
+
+        if self._search_space == "tss":
+            categories = self._info["op_names"]
+            allowed_values = None
+        else:
+            categories = None
+            allowed_values = self._info["candidates"]
 
         super().__init__(
             task_name=task_name,
@@ -73,35 +86,35 @@ class NATSBenchTask(BenchmarkTask):
             allowed_values=allowed_values
         )
 
-    def _predict(self, x: np.ndarray) -> np.ndarray:
-        design_dim = 6 if self._search_space == "tss" else 5
-        if x.ndim != 2 or x.shape[1] != design_dim:
-            raise ValueError(
-                f"x must have shape (n, {design_dim}), got {x.shape}"
-            )
+    def predict(
+        self,
+        x: np.ndarray,
+        split: Literal["valid", "test"] = "valid"
+    ) -> np.ndarray:
+        dataset = self._dataset
 
-        if x.dtype.kind not in "iuf" or not np.all(np.isin(x, self._values)):
-            raise ValueError(f"Each parameter must be one of {self._values}")
+        if dataset == "cifar10" and split == "valid":
+            dataset = "cifar10-valid"
 
-        scores = []
+        accuracies = []
+
         for design in x:
             if self._search_space == "tss":
-                # Edge order: 0->1, 0->2, 1->2, 0->3, 1->3, 2->3.
-                operations = [_OPERATIONS[int(p)] for p in design]
                 architecture = "|{}~0|+|{}~0|{}~1|+|{}~0|{}~1|{}~2|".format(
-                    *operations
+                    *(self._info["op_names"][i] for i in design)
                 )
             else:
-                architecture = ":".join(str(int(p)) for p in design)
+                architecture = "{}:{}:{}:{}:{}".format(*design)
 
-            # Resolve the official index; Cartesian-product order need not match it.
-            index = self._task.query_index_by_arch(architecture)
-            if index < 0:
-                raise ValueError(f"Architecture not found in NATS-Bench: {architecture}")
-
-            info = self._task.get_more_info(
-                index, self._dataset, hp=self._hp, is_random=False
+            results = self._api.get_more_info(
+                self._api.query_index_by_arch(architecture),
+                dataset,
+                hp=self._api.full_train_epochs,
+                is_random=False
             )
-            scores.append(info["test-accuracy"])
+            accuracies.append(results[f"{split}-accuracy"])
 
-        return np.array(scores, dtype=float).reshape(-1, 1)
+        return np.array(accuracies).reshape(-1, 1)
+
+    def _evaluate_designs(self, x: np.ndarray) -> np.ndarray:
+        return self.predict(x, split="test")

@@ -31,28 +31,6 @@ from .utils import evenly_ranked_indices, parse_categorical, parse_numerical
 
 logger = logging.getLogger(__name__)
 
-_REGISTRY: dict[str, type[BenchmarkTask]] = {}
-
-
-def make_task(task_key: str, num_designs: int) -> BenchmarkTask:
-    return _REGISTRY[task_key](task_key, num_designs)
-
-
-def register_tasks(
-    *task_keys: str
-) -> Callable[[type[BenchmarkTask]], type[BenchmarkTask]]:
-    def decorator(cls: type[BenchmarkTask]) -> type[BenchmarkTask]:
-        for task_key in task_keys:
-            if task_key in _REGISTRY:
-                raise ValueError(f"Task already registered: {task_key}")
-
-            _REGISTRY[task_key] = cls
-
-        return cls
-
-    return decorator
-
-
 _ASSETS_DIR = resources.files("llm4bbo") / "assets"
 _NUM_PREDICT_WORKERS = len(os.sched_getaffinity(0))
 
@@ -90,7 +68,7 @@ class BenchmarkTask(ABC):
 
         self.x_offline = x_offline
         cache_path = self.data_dir / f"{self.task_name}_y_offline.npy"
-        self.y_offline = self.predict(self.x_offline, cache_path=cache_path)
+        self.y_offline = self._cached_parallel_predict(self.x_offline, cache_path)
 
         self.sample_indices = evenly_ranked_indices(self.y_offline, self.num_designs)
         self.x = self.x_offline[self.sample_indices]
@@ -139,7 +117,7 @@ class BenchmarkTask(ABC):
             )
 
         references = "\n".join(
-            self._render_example(x, y)
+            f"{self._render_design(x)}, Score: {round(y.item(), self.score_precision)}"
             for x, y in zip(x_references, y_references, strict=True)
         )
 
@@ -154,47 +132,12 @@ class BenchmarkTask(ABC):
     def create_completion_messages(self, x_response: np.ndarray) -> ChatType:
         return [{"role": "assistant", "content": self._render_design(x_response)}]
 
-    def predict(self, x: np.ndarray, cache_path: Path | None = None) -> np.ndarray:
-        if cache_path is None:
-            return self._predict(x)
-
-        if cache_path.exists():
-            logger.info("Loading predictions from cache: %s", cache_path)
-            y = np.load(cache_path)
-
-            if y.shape != (len(x), 1):
-                raise ValueError(
-                    f"Predictions loaded from {cache_path} must have shape "
-                    f"({len(x)}, 1), got {y.shape}"
-                )
-
-            return y
-
-        with ProcessPoolExecutor(
-            max_workers=_NUM_PREDICT_WORKERS,
-            mp_context=get_context("fork"),
-            initializer=_init_worker_predict,
-            initargs=(self._predict,)
-        ) as executor:
-            prediction_iter = tqdm(
-                executor.map(_predict_one, x),
-                desc="Predicting",
-                total=len(x)
-            )
-            y = np.concatenate(list(prediction_iter))
-
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(cache_path, y)
-        logger.info("Saved predictions to cache: %s", cache_path)
-
-        return y
-
     def evaluate(self, completions: list[str]) -> tuple[np.ndarray, int]:
         designs, valid_flags = self._parse_completions(completions)
         scores = np.full((len(designs), 1), self.y_offline.min())
 
         if valid_flags.any():
-            scores[valid_flags] = self.predict(designs[valid_flags])
+            scores[valid_flags] = self._evaluate_designs(designs[valid_flags])
 
         num_valid = int(valid_flags.sum())
         return scores, num_valid
@@ -206,12 +149,6 @@ class BenchmarkTask(ABC):
 
         # Use the shortest round-trip representation for numerical values
         return f"<design>[{', '.join(str(param) for param in x)}]</design>"
-
-    def _render_example(self, x: np.ndarray, y: np.ndarray) -> str:
-        return (
-            f"{self._render_design(x)}, "
-            f"Score: {round(y.item(), self.score_precision)}"
-        )
 
     def _parse_completions(
         self,
@@ -234,9 +171,66 @@ class BenchmarkTask(ABC):
         designs, valid_flags = zip(*results, strict=True)
         return np.array(designs, dtype=self.x_offline.dtype), np.array(valid_flags)
 
+    def _cached_parallel_predict(self, x: np.ndarray, cache_path: Path) -> np.ndarray:
+        if cache_path.exists():
+            logger.info("Loading predictions from cache: %s", cache_path)
+            y = np.load(cache_path)
+
+            if y.shape != (len(x), 1):
+                raise ValueError(
+                    f"Predictions loaded from {cache_path} must have shape "
+                    f"({len(x)}, 1), got {y.shape}"
+                )
+
+            return y
+
+        with ProcessPoolExecutor(
+            max_workers=_NUM_PREDICT_WORKERS,
+            mp_context=get_context("fork"),
+            initializer=_init_worker_predict,
+            initargs=(self.predict,)
+        ) as executor:
+            prediction_iter = tqdm(
+                executor.map(_predict_one, x),
+                desc="Predicting",
+                total=len(x)
+            )
+            y = np.concatenate(list(prediction_iter))
+
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(cache_path, y)
+        logger.info("Saved predictions to cache: %s", cache_path)
+
+        return y
+
+    def _evaluate_designs(self, x: np.ndarray) -> np.ndarray:
+        return self.predict(x)
+
     @abstractmethod
-    def _predict(self, x: np.ndarray) -> np.ndarray:
+    def predict(self, x: np.ndarray) -> np.ndarray:
         ...
+
+
+_REGISTRY: dict[str, type[BenchmarkTask]] = {}
+
+
+def make_task(task_key: str, num_designs: int) -> BenchmarkTask:
+    return _REGISTRY[task_key](task_key, num_designs)
+
+
+def register_tasks(
+    *task_keys: str
+) -> Callable[[type[BenchmarkTask]], type[BenchmarkTask]]:
+    def decorator(cls: type[BenchmarkTask]) -> type[BenchmarkTask]:
+        for task_key in task_keys:
+            if task_key in _REGISTRY:
+                raise ValueError(f"Task already registered: {task_key}")
+
+            _REGISTRY[task_key] = cls
+
+        return cls
+
+    return decorator
 
 
 _worker_predict: Callable[[np.ndarray], np.ndarray] | None = None

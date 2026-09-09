@@ -108,38 +108,7 @@ def _silence_stdout_stderr() -> Generator[None, None, None]:
             os.close(stderr_fd)
 
 
-def _patch_dkitty_env_init() -> None:
-    from morphing_agents.mujoco.dkitty.env import DKittyEnv
-
-    original_init = DKittyEnv.__init__
-
-    def __init__(self, *args, **kwargs) -> None:
-        original_init(self, *args, **kwargs)
-
-        # Upstream writes XML to a file, then RobotEnv loads it to create the model
-        # The following blocks write incorrect XML ranges using hip_range instead of thigh_range:
-        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L130-L137
-        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L161-L168
-        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L192-L199
-        # https://github.com/brandontrabucco/morphing-agents/blob/master/morphing_agents/mujoco/dkitty/env.py#L223-L230
-        thigh_names = ("A:FRJ11", "A:FLJ21", "A:BLJ31", "A:BRJ41")
-
-        for leg, thigh_name in zip(self._legs, thigh_names):
-            thigh_range = (
-                leg.thigh_center - leg.thigh_range,
-                leg.thigh_center + leg.thigh_range
-            )
-
-            joint_id = self.model.joint_name2id(thigh_name)
-            actuator_id = self.model.actuator_name2id(thigh_name)
-            self.model.jnt_range[joint_id] = thigh_range
-            self.model.actuator_ctrlrange[actuator_id] = thigh_range
-
-    DKittyEnv.__init__ = __init__
-
-
 _silence_noisy_output()
 _patch_collections_mapping()
 _patch_numpy_inf()
 _patch_smiles_tokenizer_init()
-_patch_dkitty_env_init()

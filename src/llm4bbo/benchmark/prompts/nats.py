@@ -30,10 +30,10 @@ Each operation must be one of the following:
 
 # Task and objective: Dong et al. (2022), Sections 3.1 and 3.2
 # https://doi.org/10.1109/TPAMI.2021.3054824
-# Number of channels and layers:
+# Channel candidates and parameter count:
 # https://github.com/D-X-Y/NATS-Bench/blob/main/nats_bench/__init__.py#L63
-# Size encoding:
-# https://github.com/D-X-Y/NATS-Bench/tree/main#2-query-the-performance
+# Parameter semantics: DynamicShapeTinyNet
+# https://github.com/D-X-Y/AutoDL-Projects/blob/main/xautodl/models/shape_infers/InferTinyCellNet.py
 _SSS_SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert machine learning engineer \
 specializing in neural architecture search. \
@@ -46,11 +46,11 @@ The size is represented by 5 integer parameters, \
 each specifying an output channel count.
 
 The 5 parameters are ordered as follows:
-- p0: Output channels of the initial 3-by-3 convolution.
-- p1: Output channels of the first cell stage.
-- p2: Output channels of the first residual block.
-- p3: Output channels of the second cell stage.
-- p4: Output channels of the second residual block.
+- p0: Output channels of the initial 3-by-3 convolution and the first cell stage.
+- p1: Output channels of the first residual block.
+- p2: Output channels of the second cell stage.
+- p3: Output channels of the second residual block.
+- p4: Output channels of the third cell stage.
 
 Each parameter must be one of {{8, 16, 24, 32, 40, 48, 56, 64}}.\
 """

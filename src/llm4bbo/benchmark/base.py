@@ -142,6 +142,10 @@ class BenchmarkTask(ABC):
         num_valid = int(valid_flags.sum())
         return scores, num_valid
 
+    @abstractmethod
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        ...
+
     def _render_design(self, x: np.ndarray) -> str:
         if self.categories is not None:
             # Preserve the quotes around each category for categorical values
@@ -205,10 +209,6 @@ class BenchmarkTask(ABC):
 
     def _evaluate_designs(self, x: np.ndarray) -> np.ndarray:
         return self.predict(x)
-
-    @abstractmethod
-    def predict(self, x: np.ndarray) -> np.ndarray:
-        ...
 
 
 _REGISTRY: dict[str, type[BenchmarkTask]] = {}

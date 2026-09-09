@@ -38,7 +38,7 @@ class DesignBenchTask(BenchmarkTask):
             x_offline = x_all[indices]
 
             # Store scores and base-4 positional weights for prediction
-            self._tfbind10_scores = y_all
+            self._tfbind10_y = y_all
             self._tfbind10_weights = 4 ** np.arange(x_all.shape[1] - 1, -1, -1)
 
         else:
@@ -75,7 +75,7 @@ class DesignBenchTask(BenchmarkTask):
             if x.ndim != 2:
                 raise ValueError(f"x must be a 2D array, got shape {x.shape}")
 
-            return self._tfbind10_scores[x @ self._tfbind10_weights]
+            return self._tfbind10_y[x @ self._tfbind10_weights]
 
         return self._task.predict(x)
 

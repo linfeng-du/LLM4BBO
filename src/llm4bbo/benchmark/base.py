@@ -133,14 +133,38 @@ class BenchmarkTask(ABC):
         return [{"role": "assistant", "content": self._render_design(x_response)}]
 
     def evaluate(self, completions: list[str]) -> tuple[np.ndarray, int]:
-        designs, valid_flags = self._parse_completions(completions)
-        scores = np.full((len(designs), 1), -np.inf)
+        if not completions:
+            raise ValueError("completions must not be empty")
 
-        if valid_flags.any():
-            scores[valid_flags] = self._evaluate_designs(designs[valid_flags])
+        if self.categories is not None:
+            results = [
+                parse_categorical(
+                    c,
+                    self.design_dim,
+                    self.categories,
+                    self.x_offline.dtype
+                )
+                for c in completions
+            ]
+        else:
+            results = [
+                parse_numerical(
+                    c,
+                    self.design_dim,
+                    self.allowed_values,
+                    self.x_offline.dtype
+                )
+                for c in completions
+            ]
 
-        num_valid = int(valid_flags.sum())
-        return scores, num_valid
+        valid_indices = np.array([i for i, r in enumerate(results) if r is not None])
+        y = np.full((len(completions), 1), np.nan)
+
+        if len(valid_indices) > 0:
+            x = np.stack([r for r in results if r is not None])
+            y[valid_indices] = self._evaluate_designs(x)
+
+        return y, len(valid_indices)
 
     @abstractmethod
     def predict(self, x: np.ndarray) -> np.ndarray:
@@ -153,27 +177,6 @@ class BenchmarkTask(ABC):
 
         # Use the shortest round-trip representation for numerical values
         return f"<design>[{', '.join(str(param) for param in x)}]</design>"
-
-    def _parse_completions(
-        self,
-        completions: list[str]
-    ) -> tuple[np.ndarray, np.ndarray]:
-        if not completions:
-            raise ValueError("completions must not be empty")
-
-        if self.categories is not None:
-            results = [
-                parse_categorical(c, self.design_dim, self.categories)
-                for c in completions
-            ]
-        else:
-            results = [
-                parse_numerical(c, self.design_dim, self.allowed_values)
-                for c in completions
-            ]
-
-        designs, valid_flags = zip(*results, strict=True)
-        return np.array(designs, dtype=self.x_offline.dtype), np.array(valid_flags)
 
     def _cached_parallel_predict(self, x: np.ndarray, cache_path: Path) -> np.ndarray:
         if cache_path.exists():

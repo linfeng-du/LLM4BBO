@@ -27,12 +27,13 @@ _DESIGN_PATTERN = re.compile(r"<design>(.*?)</design>", re.DOTALL)
 def parse_categorical(
     completion: str,
     design_dim: int,
-    categories: list[str]
-) -> tuple[list[int], bool]:
+    categories: list[str],
+    dtype: np.dtype
+) -> np.ndarray | None:
     matches = _DESIGN_PATTERN.findall(completion)
 
     if not matches:
-        return [0] * design_dim, False
+        return None
 
     try:
         design = ast.literal_eval(matches[-1])
@@ -53,11 +54,11 @@ def parse_categorical(
     if (
         not isinstance(design, list)
         or len(design) != design_dim
-        or not all(cat in categories for cat in design)
+        or not all(c in categories for c in design)
     ):
-        return [0] * design_dim, False
+        return None
 
-    return [categories.index(c) for c in design], True
+    return np.array([categories.index(c) for c in design], dtype=dtype)
 
 
 # Supported formats:
@@ -66,31 +67,37 @@ def parse_categorical(
 def parse_numerical(
     completion: str,
     design_dim: int,
-    allowed_values: list[int] | None
-) -> tuple[list[float], bool]:
-    fallback_value = float(allowed_values[0]) if allowed_values is not None else 0.0
+    allowed_values: list[int] | None,
+    dtype: np.dtype
+) -> np.ndarray | None:
     matches = _DESIGN_PATTERN.findall(completion)
 
     if not matches:
-        return [fallback_value] * design_dim, False
+        return None
 
     try:
         design = ast.literal_eval(matches[-1])
     except Exception:
-        return [fallback_value] * design_dim, False
+        return None
 
     if not isinstance(design, list) or len(design) != design_dim:
-        return [fallback_value] * design_dim, False
+        return None
 
     try:
-        design = [float(p) for p in design]
+        x = [float(p) for p in design]
     except Exception:
-        return [fallback_value] * design_dim, False
+        return None
 
-    if not all(np.isfinite(design)):
-        return [fallback_value] * design_dim, False
+    if allowed_values is not None and any(p not in allowed_values for p in x):
+        return None
 
-    if allowed_values is not None and any(p not in allowed_values for p in design):
-        return [fallback_value] * design_dim, False
+    try:
+        with np.errstate(over="raise"):
+            x = np.array(x, dtype=dtype)
+    except Exception:
+        return None
 
-    return design, True
+    if not np.isfinite(x).all():
+        return None
+
+    return x

@@ -44,22 +44,22 @@ class NATSBenchTask(BenchmarkTask):
         )
 
         # Gather all designs
-        designs = []
+        x_all = []
 
         for i in range(len(self._api)):
             architecture = self._api.arch(i)
 
             if self._search_space == "tss":
                 structure = topology_str2structure(architecture)
-                designs.append([
+                x_all.append([
                     self._info["op_names"].index(op)
                     for node in structure.nodes
                     for op, _ in node
                 ])
             else:
-                designs.append(list(map(int, architecture.split(":"))))
+                x_all.append(list(map(int, architecture.split(":"))))
 
-        x_all = np.array(designs)
+        x_all = np.array(x_all)
 
         # Compute scores for all designs
         cache_path = self.data_dir / f"{task_name}_y.npy"
@@ -100,13 +100,13 @@ class NATSBenchTask(BenchmarkTask):
 
         accuracies = []
 
-        for design in x:
+        for x_i in x:
             if self._search_space == "tss":
                 architecture = "|{}~0|+|{}~0|{}~1|+|{}~0|{}~1|{}~2|".format(
-                    *(self._info["op_names"][i] for i in design)
+                    *(self._info["op_names"][i] for i in x_i)
                 )
             else:
-                architecture = "{}:{}:{}:{}:{}".format(*design)
+                architecture = "{}:{}:{}:{}:{}".format(*x_i)
 
             results = self._api.get_more_info(
                 self._api.query_index_by_arch(architecture),

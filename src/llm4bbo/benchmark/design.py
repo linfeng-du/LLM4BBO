@@ -50,14 +50,15 @@ class DesignBenchTask(BenchmarkTask):
             x_all = tmp_task.x
             del tmp_task
 
+        categories = None
+
+        if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
+            categories = _BASES
+
         super().__init__(
             task_name=task_name,
             num_designs=num_designs,
-            categories=(
-                _BASES
-                if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}
-                else None
-            ),
+            categories=categories,
             system_prompt=DESIGN_SYSTEM_PROMPTS[task_name],
             x_offline=x_offline
         )

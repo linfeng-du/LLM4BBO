@@ -16,23 +16,15 @@ Your objective is to maximize the classification accuracy \
 of the resulting architecture on {dataset}.
 
 The cell is a directed acyclic graph with 4 nodes. \
-It is represented by 6 integer parameters, one for each edge, \
-each specifying an operation.
+It is represented by a list of 6 operation names, \
+specifying operations on edges 0->1, 0->2, 1->2, 0->3, 1->3, and 2->3, respectively.
 
-The 6 parameters are ordered as follows:
-- p0: Operation on the edge from node 0 to node 1.
-- p1: Operation on the edge from node 0 to node 2.
-- p2: Operation on the edge from node 1 to node 2.
-- p3: Operation on the edge from node 0 to node 3.
-- p4: Operation on the edge from node 1 to node 3.
-- p5: Operation on the edge from node 2 to node 3.
-
-The parameter values encode operations as follows:
-- 0: Remove the edge.
-- 1: Use an identity connection.
-- 2: Apply a ReLU, 1-by-1 convolution, and batch normalization.
-- 3: Apply a ReLU, 3-by-3 convolution, and batch normalization.
-- 4: Apply 3-by-3 average pooling.\
+Each operation must be one of the following:
+- "none": No connection.
+- "skip_connect": Identity connection.
+- "nor_conv_1x1": ReLU, 1-by-1 convolution, and batch normalization, in that order.
+- "nor_conv_3x3": ReLU, 3-by-3 convolution, and batch normalization, in that order.
+- "avg_pool_3x3": 3-by-3 average pooling.
 """
 
 

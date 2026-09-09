@@ -58,9 +58,9 @@ class DesignBenchTask(BenchmarkTask):
         super().__init__(
             task_name=task_name,
             num_designs=num_designs,
-            categories=categories,
             system_prompt=DESIGN_SYSTEM_PROMPTS[task_name],
-            x_offline=x_offline
+            x_offline=x_offline,
+            categories=categories
         )
 
         if self.task_name != "TFBind10-Exact-v0":

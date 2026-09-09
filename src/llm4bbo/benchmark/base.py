@@ -202,7 +202,7 @@ class BenchmarkTask(ABC):
     def _render_design(self, x: np.ndarray) -> str:
         if self.categories is not None:
             # Preserve the quotes around each character for categorical values
-            return f"<design>{[self.categories[idx] for idx in x]}</design>"
+            return f"<design>{[self.categories[i] for i in x]}</design>"
 
         # Use the shortest round-trip representation for numerical values
         return f"<design>[{', '.join(str(param) for param in x)}]</design>"

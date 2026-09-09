@@ -134,7 +134,7 @@ class BenchmarkTask(ABC):
 
     def evaluate(self, completions: list[str]) -> tuple[np.ndarray, int]:
         designs, valid_flags = self._parse_completions(completions)
-        scores = np.full((len(designs), 1), self.y_offline.min())
+        scores = np.full((len(designs), 1), -np.inf)
 
         if valid_flags.any():
             scores[valid_flags] = self._evaluate_designs(designs[valid_flags])
@@ -144,7 +144,7 @@ class BenchmarkTask(ABC):
 
     def _render_design(self, x: np.ndarray) -> str:
         if self.categories is not None:
-            # Preserve the quotes around each character for categorical values
+            # Preserve the quotes around each category for categorical values
             return f"<design>{[self.categories[i] for i in x]}</design>"
 
         # Use the shortest round-trip representation for numerical values

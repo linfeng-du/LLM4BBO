@@ -178,8 +178,8 @@ class BenchmarkTask(ABC):
         ) as executor:
             prediction_iter = tqdm(
                 executor.map(_predict_one, x),
-                total=len(x),
-                desc="Predicting"
+                desc="Predicting",
+                total=len(x)
             )
             y = np.concatenate(list(prediction_iter))
 

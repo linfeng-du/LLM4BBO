@@ -16,8 +16,6 @@ _TASK_METADATA = {
     "dkitty": "DKittyMorphology-Exact-v0"
 }
 
-_BASES = ["A", "C", "G", "T"]
-
 
 @register_tasks(*_TASK_METADATA)
 class DesignBenchTask(BenchmarkTask):
@@ -57,7 +55,7 @@ class DesignBenchTask(BenchmarkTask):
         categories = None
 
         if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
-            categories = _BASES
+            categories = ["A", "C", "G", "T"]
 
         super().__init__(
             task_name=task_name,

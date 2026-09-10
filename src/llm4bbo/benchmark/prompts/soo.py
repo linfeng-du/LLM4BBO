@@ -21,8 +21,11 @@ which corresponds to minimizing the total velocity change \
 accumulated during the mission.
 
 The trajectory is represented by 6 continuous parameters \
-and must satisfy 4 constraints, \
-which impose lower limits on the pericenter radii of the 4 fly-by maneuvers.
+and must satisfy 4 constraints on the fly-by pericenter radii. \
+In encounter order, \
+these radii must be at least 6351.8, 6351.8, 6778.1, and 671492 km. \
+The radii are measured from the encountered planets' centers \
+and are determined by the trajectory.
 
 The 6 parameters are ordered as follows:
 - p0: Initial day, measured in days relative to 1-Jan-2000.

@@ -39,7 +39,11 @@ class DesignBenchTask(BenchmarkTask):
 
             # Store scores and base-4 positional weights for prediction
             self._tfbind10_y = y_all
-            self._tfbind10_weights = 4 ** np.arange(x_all.shape[1] - 1, -1, -1)
+            self._tfbind10_weights = 4 ** np.arange(
+                start=x_all.shape[1] - 1,
+                stop=-1,
+                step=-1
+            )
 
         else:
             x_offline = self._task.x

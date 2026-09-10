@@ -98,7 +98,7 @@ class NATSBenchTask(BenchmarkTask):
         if dataset == "cifar10" and split == "valid":
             dataset = "cifar10-valid"
 
-        accuracies = []
+        y = []
 
         for x_i in x:
             if self._search_space == "tss":
@@ -114,9 +114,9 @@ class NATSBenchTask(BenchmarkTask):
                 hp=self._api.full_train_epochs,
                 is_random=False
             )
-            accuracies.append(results[f"{split}-accuracy"])
+            y.append(results[f"{split}-accuracy"])
 
-        return np.array(accuracies).reshape(-1, 1)
+        return np.array(y).reshape(-1, 1)
 
     def _evaluate_designs(self, x: np.ndarray) -> np.ndarray:
         return self.predict(x, split="test")

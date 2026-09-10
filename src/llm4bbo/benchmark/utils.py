@@ -36,7 +36,7 @@ def parse_categorical(
         return None
 
     try:
-        design = ast.literal_eval(matches[-1])
+        design = ast.literal_eval(matches[-1].strip())
     except Exception:
         text = matches[-1].strip()
 
@@ -76,7 +76,7 @@ def parse_numerical(
         return None
 
     try:
-        design = ast.literal_eval(matches[-1])
+        design = ast.literal_eval(matches[-1].strip())
     except Exception:
         return None
 
@@ -84,20 +84,20 @@ def parse_numerical(
         return None
 
     try:
-        x = [float(p) for p in design]
+        x_i = [float(p) for p in design]
     except Exception:
         return None
 
-    if allowed_values is not None and any(p not in allowed_values for p in x):
+    if allowed_values is not None and any(p not in allowed_values for p in x_i):
         return None
 
     try:
         with np.errstate(over="raise"):
-            x = np.array(x, dtype=dtype)
+            x_i = np.array(x_i, dtype=dtype)
     except Exception:
         return None
 
-    if not np.isfinite(x).all():
+    if not np.isfinite(x_i).all():
         return None
 
-    return x
+    return x_i

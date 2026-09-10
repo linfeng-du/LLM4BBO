@@ -117,8 +117,9 @@ class BenchmarkTask(ABC):
             )
 
         references = "\n".join(
-            f"{self._render_design(x)}, Score: {round(y.item(), self.score_precision)}"
-            for x, y in zip(x_references, y_references, strict=True)
+            f"{self._render_design(x_i)}, "
+            f"Score: {round(y_i.item(), self.score_precision)}"
+            for x_i, y_i in zip(x_references, y_references, strict=True)
         )
 
         system_prompt = "\n\n".join(system_prompt_parts)
@@ -170,13 +171,13 @@ class BenchmarkTask(ABC):
     def predict(self, x: np.ndarray) -> np.ndarray:
         ...
 
-    def _render_design(self, x: np.ndarray) -> str:
+    def _render_design(self, x_i: np.ndarray) -> str:
         if self.categories is not None:
             # Preserve the quotes around each category for categorical values
-            return f"<design>{[self.categories[i] for i in x]}</design>"
+            return f"<design>{[self.categories[i] for i in x_i]}</design>"
 
         # Use the shortest round-trip representation for numerical values
-        return f"<design>[{', '.join(str(param) for param in x)}]</design>"
+        return f"<design>[{', '.join(str(p) for p in x_i)}]</design>"
 
     def _cached_parallel_predict(self, x: np.ndarray, cache_path: Path) -> np.ndarray:
         if cache_path.exists():
@@ -244,8 +245,8 @@ def _init_worker_predict(predict: Callable[[np.ndarray], np.ndarray]) -> None:
     _worker_predict = predict
 
 
-def _predict_one(x: np.ndarray) -> np.ndarray:
+def _predict_one(x_i: np.ndarray) -> np.ndarray:
     if _worker_predict is None:
         raise RuntimeError("_worker_predict is not initialized")
 
-    return _worker_predict(x.reshape(1, -1))
+    return _worker_predict(x_i.reshape(1, -1))

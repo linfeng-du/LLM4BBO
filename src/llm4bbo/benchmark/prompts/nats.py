@@ -7,6 +7,8 @@ __all__ = ["NATS_SYSTEM_PROMPTS"]
 # https://github.com/D-X-Y/NATS-Bench/blob/main/nats_bench/__init__.py#L64-L73
 # Topology encoding:
 # https://github.com/D-X-Y/NATS-Bench/tree/main#2-query-the-performance
+# Node and edge semantics:
+# https://github.com/D-X-Y/AutoDL-Projects/blob/main/xautodl/models/cell_infers/cells.py#L61-L69
 _TSS_SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert machine learning engineer \
 specializing in neural architecture search. \
@@ -18,6 +20,11 @@ of the resulting architecture on {dataset}.
 The cell is a directed acyclic graph with 4 nodes. \
 It is represented by a list of 6 operation names, \
 specifying operations on edges 0->1, 0->2, 1->2, 0->3, 1->3, and 2->3, respectively.
+
+Node 0 represents the cell's input feature tensor, \
+and node 3 represents its output feature tensor. \
+Each edge applies its selected operation to the source node's features. \
+Each non-input node sums the outputs of its incoming edges.
 
 Each operation must be one of the following:
 - "none": No connection.

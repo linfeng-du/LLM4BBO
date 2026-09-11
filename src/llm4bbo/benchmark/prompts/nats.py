@@ -27,11 +27,11 @@ Each edge applies its selected operation to the source node's features. \
 Each non-input node sums the outputs of its incoming edges.
 
 Each operation must be one of the following:
-- "none": No connection.
-- "skip_connect": Identity connection.
-- "nor_conv_1x1": ReLU, 1-by-1 convolution, and batch normalization, in that order.
-- "nor_conv_3x3": ReLU, 3-by-3 convolution, and batch normalization, in that order.
-- "avg_pool_3x3": 3-by-3 average pooling.
+- "none": No connection
+- "skip_connect": Identity connection
+- "nor_conv_1x1": ReLU, 1-by-1 convolution, and batch normalization, in that order
+- "nor_conv_3x3": ReLU, 3-by-3 convolution, and batch normalization, in that order
+- "avg_pool_3x3": 3-by-3 average pooling
 """
 
 
@@ -53,11 +53,11 @@ The size is represented by 5 integer parameters, \
 each specifying an output channel count.
 
 The 5 parameters are ordered as follows:
-- p0: Output channels of the initial 3-by-3 convolution and the first cell stage.
-- p1: Output channels of the first residual block.
-- p2: Output channels of the second cell stage.
-- p3: Output channels of the second residual block.
-- p4: Output channels of the third cell stage.
+- p0: Output channels of the initial 3-by-3 convolution and the first cell stage
+- p1: Output channels of the first residual block
+- p2: Output channels of the second cell stage
+- p3: Output channels of the second residual block
+- p4: Output channels of the third cell stage
 
 Each parameter must be one of {{8, 16, 24, 32, 40, 48, 56, 64}}.\
 """

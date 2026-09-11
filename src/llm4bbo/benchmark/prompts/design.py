@@ -49,26 +49,26 @@ corresponding to the robot's 4 legs. \
 Each leg has 3 links and 3 actuated hinge joints: hip, thigh, and ankle.
 
 The 15 parameters are ordered as follows within each leg block:
-- p0-p2: 3D position of the leg root in the torso coordinate frame.
+- p0-p2: 3D position of the leg root in the torso coordinate frame
 - p3-p5: Euler angles specifying the orientation \
-of the leg root in the torso coordinate frame, in degrees.
-- p6: Midpoint of the hip joint-angle range, in degrees.
-- p7: Half-range of the hip joint-angle range, in degrees.
-- p8: Midpoint of the thigh joint-angle range, in degrees.
-- p9: Half-range of the thigh joint-angle range, in degrees.
-- p10: Midpoint of the ankle joint-angle range, in degrees.
-- p11: Half-range of the ankle joint-angle range, in degrees.
-- p12: Size parameter of the hip link.
-- p13: Size parameter of the thigh link.
-- p14: Size parameter of the ankle link.
+of the leg root in the torso coordinate frame, in degrees
+- p6: Midpoint of the hip joint-angle range, in degrees
+- p7: Half-range of the hip joint-angle range, in degrees
+- p8: Midpoint of the thigh joint-angle range, in degrees
+- p9: Half-range of the thigh joint-angle range, in degrees
+- p10: Midpoint of the ankle joint-angle range, in degrees
+- p11: Half-range of the ankle joint-angle range, in degrees
+- p12: Size parameter of the hip link
+- p13: Size parameter of the thigh link
+- p14: Size parameter of the ankle link
 
 The parameter bounds for each leg block are:
-- p0-p2: [-0.1, 0.1] each.
-- p3-p5: [-180, 180] each.
-- p6, p8, p10: [-180, 180] each.
-- p7, p9, p11: [5, 45] each.
-- p12, p13: [0.1, 0.4] each.
-- p14: [0.2, 0.8].\
+- p0-p2: [-0.1, 0.1] each
+- p3-p5: [-180, 180] each
+- p6, p8, p10: [-180, 180] each
+- p7, p9, p11: [5, 45] each
+- p12, p13: [0.1, 0.4] each
+- p14: [0.2, 0.8]\
 """
 
 
@@ -89,28 +89,28 @@ corresponding in order to the front-right, front-left, back-left, and back-right
 Each leg has 3 links and 3 actuated joints: hip, thigh, and ankle.
 
 The 14 parameters are ordered as follows within each leg block:
-- p0-p2: 3D position of the leg root in the torso coordinate frame.
+- p0-p2: 3D position of the leg root in the torso coordinate frame
 - p3-p5: Euler angles specifying the orientation \
-of the leg root in the torso coordinate frame, in radians.
-- p6: Midpoint of the hip joint-angle range, in radians.
-- p7: Half-range of the hip joint-angle range, in radians.
-- p8: Midpoint of the thigh joint-angle range, in radians.
-- p9: Half-range of the thigh joint-angle range, in radians.
-- p10: Midpoint of the ankle joint-angle range, in radians.
-- p11: Half-range of the ankle joint-angle range, in radians.
-- p12: Size parameter of the thigh link.
-- p13: Size parameter of the ankle link.
+of the leg root in the torso coordinate frame, in radians
+- p6: Midpoint of the hip joint-angle range, in radians
+- p7: Half-range of the hip joint-angle range, in radians
+- p8: Midpoint of the thigh joint-angle range, in radians
+- p9: Half-range of the thigh joint-angle range, in radians
+- p10: Midpoint of the ankle joint-angle range, in radians
+- p11: Half-range of the ankle joint-angle range, in radians
+- p12: Size parameter of the thigh link
+- p13: Size parameter of the ankle link
 
 The parameter bounds for each leg block are:
-- p0: [-0.09, 0.09].
-- p1: [-0.122, 0.122].
-- p2: [0, 0].
-- p3-p5: [-3.141592653589793, 3.141592653589793] each.
-- p6, p8, p10: [-3.141592653589793, 3.141592653589793] each.
-- p7, p9: [0.08975979010256552, 0.7853981633974483] each.
-- p11: [0.08975979010256552, 1.5707963267948966].
-- p12: [0.0965, 0.1365].
-- p13: [0.0945, 0.1345].\
+- p0: [-0.09, 0.09]
+- p1: [-0.122, 0.122]
+- p2: [0, 0]
+- p3-p5: [-3.141592653589793, 3.141592653589793] each
+- p6, p8, p10: [-3.141592653589793, 3.141592653589793] each
+- p7, p9: [0.08975979010256552, 0.7853981633974483] each
+- p11: [0.08975979010256552, 1.5707963267948966]
+- p12: [0.0965, 0.1365]
+- p13: [0.0945, 0.1345]\
 """
 
 

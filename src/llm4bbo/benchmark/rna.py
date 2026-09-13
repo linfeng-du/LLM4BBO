@@ -31,7 +31,6 @@ _TASK_METADATA = {
 @register_tasks(*_TASK_METADATA)
 class RNATask(BenchmarkTask):
     benchmark: str = "rna"
-    score_precision: int = 3
 
     def __init__(self, task_key: str, num_designs: int) -> None:
         task_name, self._target = _TASK_METADATA[task_key]

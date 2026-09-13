@@ -37,7 +37,6 @@ _NUM_PREDICT_WORKERS = len(os.sched_getaffinity(0))
 
 class BenchmarkTask(ABC):
     benchmark: str
-    score_precision: int
 
     def __init__(
         self,
@@ -116,9 +115,9 @@ class BenchmarkTask(ABC):
                 )
             )
 
+        # Use the shortest round-trip representation for numerical values
         references = "\n".join(
-            f"{self._render_design(x_i)}, "
-            f"Score: {round(y_i.item(), self.score_precision)}"
+            f"{self._render_design(x_i)}, Score: {str(y_i[0])}"
             for x_i, y_i in zip(x_references, y_references, strict=True)
         )
 

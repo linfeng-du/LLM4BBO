@@ -20,7 +20,6 @@ _TASK_METADATA = {
 @register_tasks(*_TASK_METADATA)
 class DesignBenchTask(BenchmarkTask):
     benchmark: str = "design_bench"
-    score_precision: int = 4
 
     def __init__(self, task_key: str, num_designs: int) -> None:
         task_name = _TASK_METADATA[task_key]

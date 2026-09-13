@@ -29,7 +29,6 @@ _ARCHIVE_NAMES = {
 @register_tasks(*_TASK_METADATA)
 class NATSBenchTask(BenchmarkTask):
     benchmark: str = "nats_bench"
-    score_precision: int = 3
 
     def __init__(self, task_key: str, num_designs: int) -> None:
         self._search_space, self._dataset = _TASK_METADATA[task_key]

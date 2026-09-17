@@ -42,7 +42,7 @@ class NATSBenchTask(BenchmarkTask):
             fast_mode=True
         )
 
-        # Gather all designs
+        # Gather all possible designs
         x_all = []
 
         for i in range(len(self._api)):
@@ -60,7 +60,7 @@ class NATSBenchTask(BenchmarkTask):
 
         x_all = np.array(x_all)
 
-        # Compute scores for all designs
+        # Compute scores for all possible designs
         cache_path = self.data_dir / f"{task_name}_y.npy"
         y_all = self._cached_parallel_predict(x_all, cache_path)
 

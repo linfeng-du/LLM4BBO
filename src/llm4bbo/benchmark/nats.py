@@ -72,15 +72,24 @@ class NATSBenchTask(BenchmarkTask):
         if self._search_space == "tss":
             categories = self._info["op_names"]
             allowed_values = None
+            x_low = np.zeros(x_offline.shape[1])
+            x_high = np.full(x_offline.shape[1], len(categories) - 1)
         else:
             categories = None
             allowed_values = self._info["candidates"]
+            x_low = np.full(x_offline.shape[1], min(allowed_values))
+            x_high = np.full(x_offline.shape[1], max(allowed_values))
+
+        x_low = x_low.astype(x_offline.dtype)
+        x_high = x_high.astype(x_offline.dtype)
 
         super().__init__(
             task_name=task_name,
             num_designs=num_designs,
             system_prompt=NATS_SYSTEM_PROMPTS[self._search_space, self._dataset],
             x_offline=x_offline,
+            x_low=x_low,
+            x_high=x_high,
             categories=categories,
             allowed_values=allowed_values
         )

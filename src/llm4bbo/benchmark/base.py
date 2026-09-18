@@ -44,6 +44,8 @@ class BenchmarkTask(ABC):
         num_designs: int,
         system_prompt: str,
         x_offline: np.ndarray,
+        x_low: np.ndarray,
+        x_high: np.ndarray,
         categories: list[str] | None = None,
         allowed_values: list[int] | None = None
     ) -> None:
@@ -57,15 +59,18 @@ class BenchmarkTask(ABC):
             raise ValueError("categories and allowed_values must not both be set")
 
         self.task_name = task_name
-        self.design_dim = x_offline.shape[1]
         self.num_designs = num_designs
+        self.system_prompt = system_prompt
+        self.x_offline = x_offline
 
+        self.x_low = x_low
+        self.x_high = x_high
         self.categories = categories
         self.allowed_values = allowed_values
 
-        self.system_prompt = system_prompt
+        self.design_dim = self.x_offline.shape[1]
 
-        self.x_offline = x_offline
+        # Use oracle scores as targets for the offline dataset
         cache_path = self.data_dir / f"{self.task_name}_y_offline.npy"
         self.y_offline = self._cached_parallel_predict(self.x_offline, cache_path)
 
@@ -80,6 +85,12 @@ class BenchmarkTask(ABC):
     @property
     def data_dir(self) -> Path:
         return self.benchmark_dir / "data"
+
+    def check_within_bounds(self, x: np.ndarray) -> np.ndarray:
+        return np.all((x >= self.x_low) & (x <= self.x_high), axis=1)
+
+    def check_satisfy_constraints(self, x: np.ndarray) -> np.ndarray:
+        return np.ones(len(x), dtype=bool)
 
     def create_prompt_messages(
         self,
@@ -109,6 +120,7 @@ class BenchmarkTask(ABC):
                 )
             )
         else:
+            # Generate a single design as the final answer
             system_prompt_parts.append(
                 DESIGN_GENERATION_PROMPT_TEMPLATE.format(
                     thinking_budget=thinking_budget
@@ -158,7 +170,7 @@ class BenchmarkTask(ABC):
             ]
 
         valid_indices = np.array([i for i, r in enumerate(results) if r is not None])
-        y = np.full((len(completions), 1), np.nan)
+        y = np.full((len(completions), 1), self.y_offline.min())
 
         if len(valid_indices) > 0:
             x = np.stack([r for r in results if r is not None])

@@ -1,6 +1,8 @@
 __all__ = ["DesignBenchTask"]
 
 import design_bench
+from morphing_agents.mujoco.ant import elements as ant_elements
+from morphing_agents.mujoco.dkitty import elements as dkitty_elements
 
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
@@ -53,14 +55,28 @@ class DesignBenchTask(BenchmarkTask):
 
         categories = None
 
-        if task_name in {"TFBind8-Exact-v0", "TFBind10-Exact-v0"}:
-            categories = ["A", "C", "G", "T"]
+        match task_name:
+            case "TFBind8-Exact-v0" | "TFBind10-Exact-v0":
+                categories = ["A", "C", "G", "T"]
+                x_low = np.zeros(x_offline.shape[1])
+                x_high = np.full(x_offline.shape[1], len(categories) - 1)
+            case "AntMorphology-Exact-v0":
+                x_low = np.tile(ant_elements.LEG_LOWER_BOUND, 4)
+                x_high = np.tile(ant_elements.LEG_UPPER_BOUND, 4)
+            case "DKittyMorphology-Exact-v0":
+                x_low = np.tile(dkitty_elements.LEG_LOWER_BOUND, 4)
+                x_high = np.tile(dkitty_elements.LEG_UPPER_BOUND, 4)
+
+        x_low = x_low.astype(x_offline.dtype)
+        x_high = x_high.astype(x_offline.dtype)
 
         super().__init__(
             task_name=task_name,
             num_designs=num_designs,
             system_prompt=DESIGN_SYSTEM_PROMPTS[task_name],
             x_offline=x_offline,
+            x_low=x_low,
+            x_high=x_high,
             categories=categories
         )
 
@@ -71,6 +87,10 @@ class DesignBenchTask(BenchmarkTask):
         # Normalize predicted scores using the range of all targets
         self._oracle_scaler = MinMaxScaler().fit(y_all)
 
+    def evaluate(self, completions: list[str]) -> tuple[np.ndarray, int]:
+        y, num_valid = super().evaluate(completions)
+        return self._oracle_scaler.transform(y), num_valid
+
     def predict(self, x: np.ndarray) -> np.ndarray:
         if self.task_name == "TFBind10-Exact-v0":
             if x.ndim != 2:
@@ -79,6 +99,3 @@ class DesignBenchTask(BenchmarkTask):
             return self._tfbind10_y[x @ self._tfbind10_weights]
 
         return self._task.predict(x)
-
-    def _evaluate_designs(self, x: np.ndarray) -> np.ndarray:
-        return self._oracle_scaler.transform(self.predict(x))

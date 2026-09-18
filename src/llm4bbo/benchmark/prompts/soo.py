@@ -287,7 +287,7 @@ The parameter bounds are:
 # https://doi.org/10.1016/j.softx.2021.100666
 # Parameter count, constraint count, and bounds:
 # https://github.com/zhuyiyi-123/SOO-Bench/blob/main/soo_bench/Taskunit.py#L367-L373
-# Planet code 9 is excluded because it causes out-of-bounds access in the source code
+# Planet code 9 causes out-of-bounds access in the C++ oracle
 _GTOPX7_SYSTEM_PROMPT = """\
 You are an expert astrodynamicist \
 specializing in interplanetary trajectory optimization. \
@@ -482,16 +482,16 @@ The parameter bounds are:
 
 
 SOO_SYSTEM_PROMPTS = {
-    "GTOPX1": _GTOPX1_SYSTEM_PROMPT,
-    "GTOPX2": _GTOPX2_SYSTEM_PROMPT,
-    "GTOPX3": _GTOPX3_SYSTEM_PROMPT,
-    "GTOPX4": _GTOPX4_SYSTEM_PROMPT,
-    "GTOPX5": _GTOPX5_SYSTEM_PROMPT,
-    "GTOPX6": _GTOPX6_SYSTEM_PROMPT,
-    "GTOPX7": _GTOPX7_SYSTEM_PROMPT,
-    "CEC1": _CEC1_SYSTEM_PROMPT,
-    "CEC2": _CEC2_SYSTEM_PROMPT,
-    "CEC3": _CEC3_SYSTEM_PROMPT,
-    "CEC4": _CEC4_SYSTEM_PROMPT,
-    "CEC5": _CEC5_SYSTEM_PROMPT
+    ("gtopx_data", 1): _GTOPX1_SYSTEM_PROMPT,
+    ("gtopx_data", 2): _GTOPX2_SYSTEM_PROMPT,
+    ("gtopx_data", 3): _GTOPX3_SYSTEM_PROMPT,
+    ("gtopx_data", 4): _GTOPX4_SYSTEM_PROMPT,
+    ("gtopx_data", 5): _GTOPX5_SYSTEM_PROMPT,
+    ("gtopx_data", 6): _GTOPX6_SYSTEM_PROMPT,
+    ("gtopx_data", 7): _GTOPX7_SYSTEM_PROMPT,
+    ("cec_data", 1): _CEC1_SYSTEM_PROMPT,
+    ("cec_data", 2): _CEC2_SYSTEM_PROMPT,
+    ("cec_data", 3): _CEC3_SYSTEM_PROMPT,
+    ("cec_data", 4): _CEC4_SYSTEM_PROMPT,
+    ("cec_data", 5): _CEC5_SYSTEM_PROMPT
 }

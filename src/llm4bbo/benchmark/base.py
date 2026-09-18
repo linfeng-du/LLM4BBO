@@ -148,35 +148,34 @@ class BenchmarkTask(ABC):
         if not completions:
             raise ValueError("completions must not be empty")
 
-        if self.categories is not None:
-            results = [
-                parse_categorical(
-                    c,
-                    self.design_dim,
-                    self.categories,
-                    self.x_offline.dtype
-                )
-                for c in completions
-            ]
-        else:
-            results = [
-                parse_numerical(
-                    c,
-                    self.design_dim,
-                    self.allowed_values,
-                    self.x_offline.dtype
-                )
-                for c in completions
-            ]
-
-        valid_indices = np.array([i for i, r in enumerate(results) if r is not None])
         y = np.full((len(completions), 1), self.y_offline.min())
+        results = [self.parse_completion(c) for c in completions]
+
+        valid_indices = np.array([
+            i for i, (x_i, _) in enumerate(results) if x_i is not None
+        ])
 
         if len(valid_indices) > 0:
-            x = np.stack([r for r in results if r is not None])
+            x = np.stack([x_i for x_i, _ in results if x_i is not None])
             y[valid_indices] = self._evaluate_designs(x)
 
         return y, len(valid_indices)
+
+    def parse_completion(self, completion: str) -> tuple[np.ndarray | None, str | None]:
+        if self.categories is not None:
+            return parse_categorical(
+                completion,
+                self.design_dim,
+                self.categories,
+                self.x_offline.dtype
+            )
+
+        return parse_numerical(
+            completion,
+            self.design_dim,
+            self.allowed_values,
+            self.x_offline.dtype
+        )
 
     @abstractmethod
     def predict(self, x: np.ndarray) -> np.ndarray:

@@ -57,7 +57,7 @@ def parse_categorical(
     if len(design) != design_dim:
         return None, f"Expected {design_dim} parameters, got {len(design)}"
 
-    x = []
+    x_i = []
 
     for index, parameter in enumerate(design):
         if parameter not in categories:
@@ -66,15 +66,15 @@ def parse_categorical(
                 f"got {parameter}"
             )
 
-        x.append(categories.index(parameter))
+        x_i.append(categories.index(parameter))
 
     try:
         with np.errstate(over="raise"):
-            x = np.array(x, dtype=dtype)
+            x_i = np.array(x_i, dtype=dtype)
     except Exception as e:
         return None, f"Could not convert the parameters to dtype {dtype}: {e}"
 
-    return x, None
+    return x_i, None
 
 
 # Supported formats:
@@ -102,18 +102,18 @@ def parse_numerical(
     if len(design) != design_dim:
         return None, f"Expected {design_dim} parameters, got {len(design)}"
 
-    x = []
+    x_i = []
 
     for index, parameter in enumerate(design):
         try:
-            x.append(float(parameter))
+            x_i.append(float(parameter))
         except Exception:
             return None, (
                 f"Parameter at index {index} cannot be converted to float type"
             )
 
     if allowed_values is not None:
-        for index, parameter in enumerate(x):
+        for index, parameter in enumerate(x_i):
             if parameter not in allowed_values:
                 return None, (
                     f"Parameter at index {index} must be one of {allowed_values}, "
@@ -122,11 +122,11 @@ def parse_numerical(
 
     try:
         with np.errstate(over="raise"):
-            x = np.array(x, dtype=dtype)
+            x_i = np.array(x_i, dtype=dtype)
     except Exception as e:
         return None, f"Could not convert the parameters to dtype {dtype}: {e}"
 
-    nonfinite_indices = np.flatnonzero(~np.isfinite(x)).tolist()
+    nonfinite_indices = np.flatnonzero(~np.isfinite(x_i)).tolist()
 
     if nonfinite_indices:
         return None, (
@@ -134,4 +134,4 @@ def parse_numerical(
             f"got NaN or infinity at indices {nonfinite_indices}"
         )
 
-    return x, None
+    return x_i, None

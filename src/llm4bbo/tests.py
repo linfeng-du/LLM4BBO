@@ -1,8 +1,8 @@
 import logging
 
 import fire
-from datasets import Dataset
 
+from datasets import Dataset
 from transformers import AutoTokenizer
 from trl.generation.vllm_client import VLLMClient
 
@@ -14,19 +14,20 @@ from llm4bbo.benchmark import make_task
 # from llm4bbo.gpr import create_tool
 
 
-def test_benchmark(task_key: str = "tf8", num_designs: int = 500) -> None:
+def test_benchmark(task_key: str, num_designs: int = 500) -> None:
     task = make_task(task_key, num_designs)
 
     print("benchmark:", task.benchmark, end="\n\n")
     print("task_name:", task.task_name, end="\n\n")
-    print("design_dim:", task.design_dim, end="\n\n")
     print("num_designs:", task.num_designs, end="\n\n")
+    print("design_dim:", task.design_dim, end="\n\n")
     print("system_prompt:", task.system_prompt, sep="\n", end="\n\n")
-    print("user_prompt:", task.user_prompt, sep="\n", end="\n\n")
 
     print("x_offline.shape:", task.x_offline.shape, end="\n\n")
+    print("x_low.shape:", task.x_low.shape, end="\n\n")
+    print("x_high.shape:", task.x_high.shape, end="\n\n")
     print("y_offline.shape:", task.y_offline.shape, end="\n\n")
-    print("selected_indices.shape:", task.selected_indices.shape, end="\n\n")
+    print("sample_indices.shape:", task.sample_indices.shape, end="\n\n")
     print("x.shape:", task.x.shape, end="\n\n")
     print("y.shape:", task.y.shape, end="\n\n")
 

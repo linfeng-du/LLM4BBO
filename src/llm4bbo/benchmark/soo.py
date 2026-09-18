@@ -9,15 +9,16 @@ from .base import BenchmarkTask, register_tasks
 from .prompts.soo import SOO_SYSTEM_PROMPTS
 
 
+# GTOPX5 and CEC1 are excluded because sampling takes too long
 _TASK_METADATA = {
     "gtopx1": ("gtopx_data", 1),
     "gtopx2": ("gtopx_data", 2),
     "gtopx3": ("gtopx_data", 3),
     "gtopx4": ("gtopx_data", 4),
-    "gtopx5": ("gtopx_data", 5),
+    # "gtopx5": ("gtopx_data", 5),
     "gtopx6": ("gtopx_data", 6),
     "gtopx7": ("gtopx_data", 7),
-    "cec1": ("cec_data", 1),
+    # "cec1": ("cec_data", 1),
     "cec2": ("cec_data", 2),
     "cec3": ("cec_data", 3),
     "cec4": ("cec_data", 4),
